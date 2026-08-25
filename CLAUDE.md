@@ -222,10 +222,9 @@ Stack inicialmente definida:
 
 * Zod
 
-### Monorepo
+### Estrutura de Apps
 
-* pnpm
-* Turborepo
+`apps/frontend` e `apps/backend` são aplicações separadas e independentes, sem workspace pnpm unificado na raiz, sem Turborepo e sem pacotes compartilhados (`packages/*`). Essa é uma decisão explícita — não um estado transitório — registrada em `docs/decisions/ADR-001-stack.md` (decisão 8) e detalhada em `docs/architecture/arquitetura.md` §3.
 
 ### Testes
 
@@ -243,17 +242,11 @@ A stack poderá mudar somente mediante decisão técnica documentada.
 # 10. Estrutura do Projeto
 
 ```text
-autoforge/
+ztech-mecanica/
 │
 ├── apps/
-│   ├── web/
-│   └── api/
-│
-├── packages/
-│   ├── ui/
-│   ├── types/
-│   ├── config/
-│   └── utils/
+│   ├── frontend/
+│   └── backend/
 │
 ├── docs/
 │   ├── product/
@@ -271,6 +264,8 @@ autoforge/
 ├── .env.example
 └── .gitignore
 ```
+
+Não há diretório `packages/` nesta fase — ver decisão registrada em `docs/decisions/ADR-001-stack.md` (decisão 8).
 
 ---
 
