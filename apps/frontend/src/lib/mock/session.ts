@@ -1,5 +1,7 @@
 export interface MockTenant {
   name: string;
+  document: string;
+  city: string;
   plan: "Essencial" | "Profissional" | "Premium";
 }
 
@@ -18,6 +20,8 @@ export interface MockSession {
 export const mockSession: MockSession = {
   tenant: {
     name: "Oficina Central Auto Peças",
+    document: "12.345.678/0001-90",
+    city: "São Paulo · SP",
     plan: "Profissional",
   },
   user: {

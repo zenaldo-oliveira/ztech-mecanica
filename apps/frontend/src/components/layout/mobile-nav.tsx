@@ -1,30 +1,19 @@
 "use client";
 
-import { useState } from "react";
-import { Menu } from "lucide-react";
-
-import { Button } from "@/components/ui/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
+import { useAppShell } from "@/components/layout/app-shell";
 import { SidebarNav } from "@/components/layout/sidebar-nav";
 
+/** Navigation drawer for mobile and tablet, opened from the topbar menu button. */
 export function MobileNav() {
-  const [open, setOpen] = useState(false);
+  const { drawerOpen, setDrawerOpen } = useAppShell();
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="md:hidden" aria-label="Abrir menu de navegação">
-          <Menu className="size-5" aria-hidden="true" />
-        </Button>
-      </SheetTrigger>
-      <SheetContent side="left" className="w-64 gap-0 p-0 sm:max-w-64">
+    <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
+      <SheetContent side="left" className="w-72 gap-0 p-0 sm:max-w-72" showCloseButton={false}>
         <SheetTitle className="sr-only">Menu de navegação</SheetTitle>
-        <SidebarNav onNavigate={() => setOpen(false)} />
+        <SheetDescription className="sr-only">Acesse os módulos do ZTech Mecânica.</SheetDescription>
+        <SidebarNav onNavigate={() => setDrawerOpen(false)} />
       </SheetContent>
     </Sheet>
   );

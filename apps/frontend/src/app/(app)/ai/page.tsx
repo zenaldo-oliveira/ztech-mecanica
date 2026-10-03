@@ -7,7 +7,7 @@ export default function AiPage() {
     <ModulePlaceholder
       icon={Sparkles}
       title="IA"
-      description="Assistente inteligente do AutoForge."
+      description="Assistente inteligente da oficina."
     />
   );
 }

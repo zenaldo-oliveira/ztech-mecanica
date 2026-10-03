@@ -1,45 +1,18 @@
 "use client";
 
-import { useCallback, useSyncExternalStore } from "react";
+import { useCallback } from "react";
 
-const STORAGE_KEY = "autoforge.sidebar.collapsed";
+import { useLocalStorageValue } from "@/lib/local-storage-store";
 
-type Listener = () => void;
-
-const listeners = new Set<Listener>();
-
-function subscribe(listener: Listener) {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
-}
-
-function getSnapshot() {
-  return window.localStorage.getItem(STORAGE_KEY) === "true";
-}
-
-function getServerSnapshot() {
-  return false;
-}
-
-function persistCollapsed(value: boolean) {
-  window.localStorage.setItem(STORAGE_KEY, String(value));
-  listeners.forEach((listener) => listener());
-}
+const STORAGE_KEY = "ztech.sidebar.collapsed";
 
 export function useSidebarCollapsed() {
-  // useSyncExternalStore renders `getServerSnapshot` during SSR and initial
-  // hydration (matching the server markup exactly, so no mismatch), then
-  // resyncs to the real `getSnapshot` value before the browser paints —
-  // this is what avoids a flash of the wrong width on reload.
-  const collapsed = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const [stored, setStored] = useLocalStorageValue(STORAGE_KEY);
+  const collapsed = stored === "true";
 
-  const setCollapsed = useCallback((value: boolean) => {
-    persistCollapsed(value);
-  }, []);
+  const setCollapsed = useCallback((value: boolean) => setStored(String(value)), [setStored]);
 
-  const toggle = useCallback(() => {
-    persistCollapsed(!collapsed);
-  }, [collapsed]);
+  const toggle = useCallback(() => setStored(String(!collapsed)), [collapsed, setStored]);
 
   return { collapsed, setCollapsed, toggle };
 }

@@ -15,7 +15,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AutoForge ERP",
+  title: {
+    default: "ZTech Mecânica",
+    template: "%s · ZTech Mecânica",
+  },
   description: "Gestão completa da oficina, do orçamento ao financeiro.",
 };
 
