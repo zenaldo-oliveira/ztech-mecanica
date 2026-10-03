@@ -24,6 +24,7 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Exclui API (protegida pelo backend), arquivos internos do Next e arquivos estáticos.
-  matcher: ["/((?!api/|_next/static|_next/image|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt)$).*)"],
+  // Exclui API (protegida pelo backend), arquivos internos do Next e arquivos estáticos
+  // públicos (imagens e vídeos de /public, ex.: /videos/engine.mp4 do fundo do login).
+  matcher: ["/((?!api/|_next/static|_next/image|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|mp4|webm)$).*)"],
 };

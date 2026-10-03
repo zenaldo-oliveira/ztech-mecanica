@@ -30,7 +30,7 @@ export function AuthCard({ children, leaving = false, className }: AuthCardProps
   return (
     <section
       className={cn(
-        "relative w-full max-w-[25rem] rounded-2xl border border-white/10 bg-card/75 p-7 shadow-[0_30px_80px_-20px_rgb(0_0_0/0.6)] backdrop-blur-xl sm:p-9",
+        "relative w-full max-w-[25rem] rounded-2xl border border-white/10 bg-card/60 p-7 shadow-[0_30px_80px_-20px_rgb(0_0_0/0.75),inset_0_1px_0_rgb(255_255_255/0.06)] backdrop-blur-2xl backdrop-saturate-150 sm:p-9",
         leaving ? "auth-card-leave" : "auth-card-enter",
         className,
       )}

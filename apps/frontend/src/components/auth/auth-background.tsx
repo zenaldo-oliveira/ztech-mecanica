@@ -1,80 +1,51 @@
-import { gearPath } from "@/components/auth/auth-geometry";
+import { existsSync } from "node:fs";
+import path from "node:path";
 
-// Fundo tecnológico de tela cheia das telas de autenticação (decorativo, aria-hidden).
-// Somente CSS + SVG estático; movimento via classes auth-* (desligadas em reduced-motion).
+import { EngineSchematic } from "@/components/auth/engine-schematic";
+import { EngineVideo } from "@/components/auth/engine-video";
 
-const GEAR_LARGE = gearPath(160, 160, 150, 128, 22);
-const GEAR_SMALL = gearPath(90, 90, 82, 68, 14);
+// Fundo cinematográfico das telas de autenticação (decorativo, aria-hidden).
+//
+// Mídia: /public/videos/engine.mp4 (loop curto, H.264) com pôster engine-poster.jpg.
+// Enquanto o arquivo não existir — ou se falhar ao carregar — usa o motor procedural
+// em SVG (EngineSchematic), com a mesma cinemática virabrequim → bielas → pistões.
+//
+// Tratamento por cima da mídia: filtro (brilho/contraste/saturação), preto translúcido,
+// gradiente azul profundo, vinheta e grade técnica discreta.
 
-const RINGS = [180, 260, 340, 430];
+const VIDEO_SRC = "/videos/engine.mp4";
+const POSTER_SRC = "/videos/engine-poster.jpg";
+
+function publicFileExists(publicPath: string): boolean {
+  return existsSync(path.join(process.cwd(), "public", publicPath));
+}
+
+/** Vídeo: cobre 100% da viewport sem barras; enquadramento ajustado no celular. */
+const VIDEO_CLASS =
+  "absolute inset-0 size-full object-cover object-center [filter:brightness(0.55)_contrast(1.08)_saturate(0.85)] max-sm:object-[60%_center]";
+/** Motor procedural (SVG com preserveAspectRatio slice): já é escuro, filtro mais leve. */
+const SCHEMATIC_CLASS = "auth-fade-in absolute inset-0 size-full [filter:brightness(0.8)_saturate(0.9)]";
 
 export function AuthBackground() {
+  const hasVideo = publicFileExists(VIDEO_SRC);
+  const poster = publicFileExists(POSTER_SRC) ? POSTER_SRC : undefined;
+  const schematic = <EngineSchematic className={SCHEMATIC_CLASS} />;
+
   return (
-    <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
-      {/* Base: azul-noite com iluminação central suave */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_60%_at_50%_45%,color-mix(in_oklab,var(--sidebar-primary)_16%,transparent),transparent_70%)]" />
-      <div className="auth-glow absolute -top-56 -left-40 size-[38rem] rounded-full bg-sidebar-primary/15 blur-3xl" />
-      <div
-        className="auth-glow absolute -right-48 -bottom-64 size-[42rem] rounded-full bg-primary/12 blur-3xl"
-        style={{ animationDelay: "-9s" }}
-      />
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden bg-[#05070b]">
+      {hasVideo ? <EngineVideo src={VIDEO_SRC} poster={poster} className={VIDEO_CLASS} fallback={schematic} /> : schematic}
 
-      {/* Grade técnica e varredura de luz */}
-      <div className="auth-grid auth-fade-in absolute inset-0 [mask-image:radial-gradient(ellipse_75%_70%_at_50%_50%,black_25%,transparent_80%)]" />
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="auth-scan h-1/3 w-full bg-gradient-to-b from-transparent via-sidebar-primary/[0.06] to-transparent" />
-      </div>
-
-      {/* Anéis concêntricos atrás do cartão */}
-      <svg
-        viewBox="-500 -500 1000 1000"
-        className="auth-fade-in absolute top-1/2 left-1/2 size-[min(120vmax,1100px)] -translate-x-1/2 -translate-y-1/2 text-sidebar-foreground"
-        fill="none"
-      >
-        {RINGS.map((radius, index) => (
-          <circle
-            key={radius}
-            r={radius}
-            stroke="currentColor"
-            strokeOpacity={0.07 - index * 0.012}
-            strokeDasharray={index % 2 === 0 ? "2 10" : "60 18 6 18"}
-            className={index % 2 === 0 ? "auth-spin-slow" : "auth-spin-reverse"}
-          />
-        ))}
-        <line x1="-500" y1="0" x2="500" y2="0" stroke="currentColor" strokeOpacity="0.05" strokeDasharray="2 8" />
-        <line x1="0" y1="-500" x2="0" y2="500" stroke="currentColor" strokeOpacity="0.05" strokeDasharray="2 8" />
-      </svg>
-
-      {/* Engrenagens abstratas nos cantos */}
-      <svg
-        viewBox="0 0 320 320"
-        className="auth-fade-in absolute -top-24 -right-20 hidden w-[26rem] text-sidebar-foreground sm:block"
-        fill="none"
-      >
-        <g className="auth-spin-slow">
-          <path d={GEAR_LARGE} stroke="currentColor" strokeOpacity="0.09" strokeWidth="1.5" />
-          <circle cx="160" cy="160" r="70" stroke="currentColor" strokeOpacity="0.07" strokeWidth="1.5" />
-          <circle cx="160" cy="160" r="22" stroke="var(--sidebar-primary)" strokeOpacity="0.35" strokeWidth="2" />
-        </g>
-      </svg>
-      <svg
-        viewBox="0 0 180 180"
-        className="auth-fade-in absolute -bottom-10 -left-10 hidden w-64 text-sidebar-foreground sm:block"
-        fill="none"
-      >
-        <g className="auth-spin-reverse">
-          <path d={GEAR_SMALL} stroke="currentColor" strokeOpacity="0.09" strokeWidth="1.5" />
-          <circle cx="90" cy="90" r="30" stroke="currentColor" strokeOpacity="0.07" strokeWidth="1.5" />
-        </g>
-      </svg>
-
-      {/* Anotações técnicas discretas */}
-      <div className="absolute top-6 left-6 hidden font-mono text-[10px] tracking-[0.25em] text-sidebar-foreground/25 sm:block">
-        SYS · READY
-      </div>
-      <div className="absolute right-6 bottom-6 hidden font-mono text-[10px] tracking-[0.25em] text-sidebar-foreground/25 sm:block">
-        ZT · OFICINA
-      </div>
+      {/* Escurecimento base: o formulário é o elemento principal */}
+      <div className="absolute inset-0 bg-black/55" />
+      {/* Gradiente azul profundo, mais denso no centro onde fica o cartão */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_55%_at_50%_50%,color-mix(in_oklab,var(--sidebar)_70%,transparent),transparent_75%)]" />
+      <div className="absolute inset-0 bg-gradient-to-b from-[color-mix(in_oklab,var(--sidebar-primary)_14%,transparent)] via-transparent to-[color-mix(in_oklab,var(--sidebar)_85%,transparent)]" />
+      {/* Iluminação azul discreta vinda de cima (reflexo no metal) */}
+      <div className="auth-glow absolute -top-64 left-1/2 size-[46rem] -translate-x-1/2 rounded-full bg-sidebar-primary/12 blur-3xl" />
+      {/* Grade técnica discreta */}
+      <div className="auth-grid absolute inset-0 opacity-60 [mask-image:radial-gradient(ellipse_70%_65%_at_50%_50%,black_20%,transparent_80%)]" />
+      {/* Vinheta nas bordas */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_85%_80%_at_50%_50%,transparent_45%,rgb(0_0_0/0.85)_100%)]" />
     </div>
   );
 }

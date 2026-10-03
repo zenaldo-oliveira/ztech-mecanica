@@ -190,12 +190,6 @@
   }
 }
 
-@keyframes auth-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 @keyframes auth-glow-drift {
   0%,
   100% {
@@ -203,15 +197,6 @@
   }
   50% {
     transform: translate3d(-6%, 4%, 0) scale(1.08);
-  }
-}
-
-@keyframes auth-scan {
-  from {
-    transform: translate3d(0, -100%, 0);
-  }
-  to {
-    transform: translate3d(0, 100%, 0);
   }
 }
 
@@ -239,18 +224,6 @@
   }
 }
 
-@keyframes auth-pulse-dot {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.45;
-    transform: scale(0.8);
-  }
-}
-
 @layer components {
   /* Entrada sequencial: atraso via --auth-delay no style do elemento. */
   .auth-enter {
@@ -263,24 +236,8 @@
   }
 
   /* Fundo: movimentos lentos e discretos. */
-  .auth-spin-slow {
-    transform-box: fill-box;
-    transform-origin: center;
-    animation: auth-spin 90s linear infinite;
-  }
-  .auth-spin-reverse {
-    transform-box: fill-box;
-    transform-origin: center;
-    animation: auth-spin 140s linear infinite reverse;
-  }
   .auth-glow {
     animation: auth-glow-drift 18s ease-in-out infinite;
-  }
-  .auth-scan {
-    animation: auth-scan 9s cubic-bezier(0.45, 0, 0.55, 1) infinite;
-  }
-  .auth-pulse-dot {
-    animation: auth-pulse-dot 2.4s ease-in-out infinite;
   }
 
   /* Grade técnica que esmaece nas bordas. */
@@ -324,11 +281,7 @@
   @media (prefers-reduced-motion: reduce) {
     .auth-enter,
     .auth-fade-in,
-    .auth-spin-slow,
-    .auth-spin-reverse,
     .auth-glow,
-    .auth-scan,
-    .auth-pulse-dot,
     .auth-shake {
       animation: none;
     }

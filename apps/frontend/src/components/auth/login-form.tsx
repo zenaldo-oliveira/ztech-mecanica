@@ -8,6 +8,7 @@ import { loginInputSchema } from "@ztech/validation";
 
 import { Button } from "@/components/ui/button";
 import { AuthCard } from "@/components/auth/auth-card";
+import { CreateWorkshopDialog } from "@/components/auth/create-workshop-dialog";
 import { AuthHeading, FormAlert, PasswordField, TextField, fieldErrorsFrom, type FieldErrors } from "@/components/auth/form-parts";
 import { IgnitionTransition } from "@/components/auth/ignition-transition";
 import { enterDelay } from "@/components/auth/motion";
@@ -197,6 +198,13 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
           >
             Esqueci minha senha
           </Link>
+        </div>
+
+        <div className="auth-enter flex flex-col gap-4" style={enterDelay(370)}>
+          <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" aria-hidden="true" />
+          <p className="text-center text-sm text-muted-foreground">
+            Não possui uma conta? <CreateWorkshopDialog />
+          </p>
         </div>
 
         <p className="sr-only" aria-live="polite">
