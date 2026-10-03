@@ -138,9 +138,17 @@ export function FormAlert({
   );
 }
 
-export function AuthHeading({ title, description }: { title: string; description: string }) {
+export function AuthHeading({
+  title,
+  description,
+  align = "start",
+}: {
+  title: string;
+  description: string;
+  align?: "start" | "center";
+}) {
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className={cn("flex flex-col gap-1.5", align === "center" && "items-center text-center")}>
       <h1 className="text-2xl font-semibold tracking-tight text-foreground">{title}</h1>
       <p className="text-sm text-muted-foreground">{description}</p>
     </div>

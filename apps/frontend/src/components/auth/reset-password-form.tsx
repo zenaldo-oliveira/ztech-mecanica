@@ -18,8 +18,8 @@ function readTokenFromHash(): string | null {
   return params.get("token");
 }
 
-/** Renderizado somente no navegador (o fragmento não existe no servidor). */
-export function ResetPasswordForm() {
+/** Conteúdo da redefinição. Renderizado somente no navegador (o fragmento não existe no servidor). */
+export function ResetPasswordContent() {
   const [token] = useState(readTokenFromHash);
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
@@ -39,6 +39,7 @@ export function ResetPasswordForm() {
     return (
       <div className="flex flex-col gap-6">
         <AuthHeading
+          align="center"
           title="Link inválido"
           description="Este link de redefinição está incompleto ou já foi usado. Solicite um novo para continuar."
         />
@@ -52,10 +53,11 @@ export function ResetPasswordForm() {
   if (done) {
     return (
       <div className="flex flex-col gap-6">
-        <div className="flex size-11 items-center justify-center rounded-xl bg-success/10 text-success">
+        <div className="flex size-11 items-center justify-center self-center rounded-xl bg-success/10 text-success">
           <ShieldCheck className="size-5" aria-hidden="true" />
         </div>
         <AuthHeading
+          align="center"
           title="Senha redefinida"
           description="Sua nova senha já está valendo. Por segurança, encerramos as sessões abertas em outros dispositivos."
         />
@@ -96,10 +98,10 @@ export function ResetPasswordForm() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+      <div className="flex size-11 items-center justify-center self-center rounded-xl bg-primary/10 text-primary">
         <KeyRound className="size-5" aria-hidden="true" />
       </div>
-      <AuthHeading title="Criar nova senha" description={`Use ao menos ${PASSWORD_MIN_LENGTH} caracteres.`} />
+      <AuthHeading align="center" title="Criar nova senha" description={`Use ao menos ${PASSWORD_MIN_LENGTH} caracteres.`} />
       <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-4" aria-busy={isSubmitting}>
         {formError ? (
           <FormAlert>

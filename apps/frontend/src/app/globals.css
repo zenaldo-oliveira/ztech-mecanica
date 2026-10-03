@@ -190,17 +190,6 @@
   }
 }
 
-@keyframes auth-float-in {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 24px, 0) scale(0.97);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
 @keyframes auth-spin {
   to {
     transform: rotate(360deg);
@@ -272,10 +261,6 @@
     animation: auth-fade 1200ms ease-out both;
     animation-delay: var(--auth-delay, 0ms);
   }
-  .auth-float-in {
-    animation: auth-float-in 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
-    animation-delay: var(--auth-delay, 0ms);
-  }
 
   /* Fundo: movimentos lentos e discretos. */
   .auth-spin-slow {
@@ -339,7 +324,6 @@
   @media (prefers-reduced-motion: reduce) {
     .auth-enter,
     .auth-fade-in,
-    .auth-float-in,
     .auth-spin-slow,
     .auth-spin-reverse,
     .auth-glow,
@@ -356,6 +340,153 @@
     }
     .auth-shine::after {
       display: none;
+    }
+  }
+}
+
+@keyframes auth-card-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 18px, 0) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes auth-card-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(0, -10px, 0) scale(0.94);
+  }
+}
+
+@keyframes ignition-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ignition-shake {
+  0%,
+  100% {
+    transform: none;
+  }
+  15% {
+    transform: translate3d(-2px, 1px, 0);
+  }
+  30% {
+    transform: translate3d(2px, -1px, 0);
+  }
+  45% {
+    transform: translate3d(-2px, 0, 0);
+  }
+  60% {
+    transform: translate3d(1px, 1px, 0);
+  }
+  75% {
+    transform: translate3d(-1px, 0, 0);
+  }
+}
+
+@keyframes ignition-flash {
+  0% {
+    opacity: 0;
+  }
+  35% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.25;
+  }
+}
+
+@keyframes ignition-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.3;
+    transform: translate3d(0, 0, 0);
+  }
+  40% {
+    opacity: 1;
+    transform: translate3d(0, -3px, 0);
+  }
+}
+
+@keyframes app-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@layer components {
+  /* Cartão central: entrada curta e sofisticada; saída após o sucesso real do login. */
+  .auth-card-enter {
+    animation: auth-card-in 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .auth-card-leave {
+    animation: auth-card-out 260ms cubic-bezier(0.4, 0, 1, 1) both;
+    pointer-events: none;
+  }
+
+  /* Painel de instrumentos ("ligando o motor"). */
+  .ignition-enter {
+    animation: ignition-in 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .ignition-shake {
+    animation: ignition-shake 220ms linear both;
+  }
+  .ignition-flash {
+    animation: ignition-flash 520ms ease-out both;
+  }
+  .ignition-progress-glow {
+    filter: drop-shadow(0 0 6px color-mix(in oklab, var(--sidebar-primary) 70%, transparent));
+  }
+  [data-phase="peak"] .ignition-progress-glow {
+    filter: drop-shadow(0 0 12px color-mix(in oklab, var(--warning) 80%, transparent));
+  }
+  .ignition-dots > span {
+    animation: ignition-dot 1s ease-in-out infinite;
+  }
+  .ignition-dots > span:nth-child(2) {
+    animation-delay: 150ms;
+  }
+  .ignition-dots > span:nth-child(3) {
+    animation-delay: 300ms;
+  }
+
+  /* Entrada do app logo após o login (marcador colocado pelo login-form). */
+  html[data-app-enter] #main-content,
+  html[data-app-enter] aside,
+  html[data-app-enter] header {
+    animation: app-enter 420ms ease-out both;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .auth-card-enter,
+    .auth-card-leave,
+    .ignition-enter,
+    .ignition-shake,
+    .ignition-flash,
+    .ignition-dots > span,
+    html[data-app-enter] #main-content,
+    html[data-app-enter] aside,
+    html[data-app-enter] header {
+      animation: none;
     }
   }
 }

@@ -6,6 +6,7 @@ import { ArrowLeft, Loader2, Mail, MailCheck } from "lucide-react";
 import { forgotPasswordInputSchema } from "@ztech/validation";
 
 import { Button } from "@/components/ui/button";
+import { AuthCard } from "@/components/auth/auth-card";
 import { AuthHeading, FormAlert, TextField, fieldErrorsFrom, type FieldErrors } from "@/components/auth/form-parts";
 import { forgotPassword } from "@/lib/api/auth";
 import { errorMessage } from "@/lib/api/errors";
@@ -22,7 +23,7 @@ function BackToLogin() {
   );
 }
 
-export function ForgotPasswordForm() {
+function ForgotPasswordContent() {
   const [email, setEmail] = useState("");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors<"email">>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -51,11 +52,11 @@ export function ForgotPasswordForm() {
   if (confirmation) {
     return (
       <div className="flex flex-col gap-6">
-        <div className="flex size-11 items-center justify-center rounded-xl bg-success/10 text-success">
+        <div className="flex size-11 items-center justify-center self-center rounded-xl bg-success/10 text-success">
           <MailCheck className="size-5" aria-hidden="true" />
         </div>
-        <AuthHeading title="Verifique seu e-mail" description={confirmation} />
-        <p className="text-sm text-muted-foreground">
+        <AuthHeading align="center" title="Verifique seu e-mail" description={confirmation} />
+        <p className="text-center text-sm text-muted-foreground">
           O link vale por 30 minutos. Não recebeu? Confira a caixa de spam ou solicite novamente.
         </p>
         <BackToLogin />
@@ -67,6 +68,7 @@ export function ForgotPasswordForm() {
     <div className="flex flex-col gap-6">
       <BackToLogin />
       <AuthHeading
+        align="center"
         title="Esqueceu a senha?"
         description="Informe o e-mail da sua conta. Se ele estiver cadastrado, enviaremos um link para criar uma nova senha."
       />
@@ -91,5 +93,13 @@ export function ForgotPasswordForm() {
         </Button>
       </form>
     </div>
+  );
+}
+
+export function ForgotPasswordForm() {
+  return (
+    <AuthCard>
+      <ForgotPasswordContent />
+    </AuthCard>
   );
 }
