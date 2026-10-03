@@ -12,7 +12,7 @@ export default function AppNotFound() {
       <div className="flex max-w-sm flex-col gap-1">
         <h1 className="text-base font-medium text-foreground">Página não encontrada</h1>
         <p className="text-sm text-muted-foreground">
-          O endereço acessado não existe no ZTech Mecânica. Use o menu ou a busca para encontrar o que precisa.
+          O endereço acessado não existe no ZTECH OFICINA. Use o menu ou a busca para encontrar o que precisa.
         </p>
       </div>
       <Button variant="outline" size="sm" asChild>

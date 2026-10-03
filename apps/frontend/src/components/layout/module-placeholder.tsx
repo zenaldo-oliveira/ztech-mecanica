@@ -38,7 +38,7 @@ export function ModulePlaceholder({ title, description, icon: Icon, phase, highl
               {title} chega em breve
             </h2>
             <p className="text-sm text-muted-foreground">
-              Este módulo faz parte do roteiro do ZTech Mecânica
+              Este módulo faz parte do roteiro do ZTECH OFICINA
               {phase ? (
                 <>
                   {" "}

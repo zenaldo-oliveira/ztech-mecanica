@@ -248,7 +248,7 @@ function Brand({ collapsed }: { collapsed: boolean }) {
   return (
     <Link
       href="/dashboard"
-      aria-label="ZTech Mecânica — ir para o Dashboard"
+      aria-label="ZTECH OFICINA — ir para o Dashboard"
       className="flex min-w-0 items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
     >
       <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
@@ -256,7 +256,7 @@ function Brand({ collapsed }: { collapsed: boolean }) {
       </span>
       {collapsed ? null : (
         <span className="truncate text-sm font-semibold tracking-tight text-sidebar-foreground">
-          ZTech <span className="font-normal text-sidebar-foreground/55">Mecânica</span>
+          ZTECH <span className="font-normal text-sidebar-foreground/55">OFICINA</span>
         </span>
       )}
     </Link>

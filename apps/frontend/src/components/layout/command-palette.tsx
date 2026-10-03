@@ -71,7 +71,7 @@ function SearchPanel({ onClose }: SearchPanelProps) {
           aria-controls={listboxId}
           aria-autocomplete="list"
           aria-activedescendant={activeResult ? optionId(activeIndex) : undefined}
-          aria-label="Buscar no ZTech Mecânica"
+          aria-label="Buscar no ZTECH OFICINA"
           placeholder="Buscar cliente, placa, OS, produto ou página…"
           value={query}
           onChange={(event) => {

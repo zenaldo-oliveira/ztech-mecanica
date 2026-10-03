@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "ZTech Mecânica",
-    template: "%s · ZTech Mecânica",
+    default: "ZTECH OFICINA",
+    template: "%s · ZTECH OFICINA",
   },
   description: "Gestão completa da oficina, do orçamento ao financeiro.",
 };

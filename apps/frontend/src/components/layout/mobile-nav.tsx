@@ -12,7 +12,7 @@ export function MobileNav() {
     <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
       <SheetContent side="left" className="w-72 gap-0 p-0 sm:max-w-72" showCloseButton={false}>
         <SheetTitle className="sr-only">Menu de navegação</SheetTitle>
-        <SheetDescription className="sr-only">Acesse os módulos do ZTech Mecânica.</SheetDescription>
+        <SheetDescription className="sr-only">Acesse os módulos do ZTECH OFICINA.</SheetDescription>
         <SidebarNav onNavigate={() => setDrawerOpen(false)} />
       </SheetContent>
     </Sheet>
