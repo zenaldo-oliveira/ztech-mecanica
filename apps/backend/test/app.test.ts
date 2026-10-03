@@ -5,11 +5,14 @@ import { describe, expect, it } from "vitest";
 import { buildApp, REQUEST_ID_HEADER } from "../src/app.js";
 import { EnvValidationError, loadEnv, type Env } from "../src/config/env.js";
 
+const DB_URL = "postgresql://unused@127.0.0.1:1/unused";
+
 const testEnv: Env = {
   NODE_ENV: "test",
   HOST: "127.0.0.1",
   PORT: 3333,
   LOG_LEVEL: "info",
+  DATABASE_URL: DB_URL,
 };
 
 function createLogCollector() {
@@ -74,6 +77,7 @@ describe("loadEnv", () => {
       HOST: "127.0.0.1",
       PORT: "3333",
       LOG_LEVEL: "info",
+      DATABASE_URL: DB_URL,
     };
 
     expect(() => loadEnv(withoutPort)).toThrow(EnvValidationError);
@@ -84,7 +88,7 @@ describe("loadEnv", () => {
     const secretLooking = "valor-que-nao-pode-vazar";
 
     try {
-      loadEnv({ NODE_ENV: secretLooking, HOST: "h", PORT: "1", LOG_LEVEL: "info" });
+      loadEnv({ NODE_ENV: secretLooking, HOST: "h", PORT: "1", LOG_LEVEL: "info", DATABASE_URL: DB_URL });
       expect.unreachable();
     } catch (error) {
       expect(error).toBeInstanceOf(EnvValidationError);
@@ -94,7 +98,7 @@ describe("loadEnv", () => {
   });
 
   it("converte PORT para número", () => {
-    const env = loadEnv({ NODE_ENV: "test", HOST: "h", PORT: "8080", LOG_LEVEL: "info" });
+    const env = loadEnv({ NODE_ENV: "test", HOST: "h", PORT: "8080", LOG_LEVEL: "info", DATABASE_URL: DB_URL });
     expect(env.PORT).toBe(8080);
   });
 });

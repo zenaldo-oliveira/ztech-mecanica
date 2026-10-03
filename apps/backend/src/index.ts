@@ -1,5 +1,6 @@
 import { buildApp } from "./app.js";
 import { EnvValidationError, loadEnv, type Env } from "./config/env.js";
+import { createPrismaClient } from "./db/client.js";
 
 function loadEnvOrExit(): Env {
   try {
@@ -16,7 +17,11 @@ function loadEnvOrExit(): Env {
 
 async function main() {
   const env = loadEnvOrExit();
-  const app = buildApp({ env });
+  const prisma = createPrismaClient(env.DATABASE_URL);
+  const app = buildApp({ env, prisma });
+  app.addHook("onClose", async () => {
+    await prisma.$disconnect();
+  });
 
   const shutdown = async (signal: string) => {
     app.log.info({ signal }, "encerrando servidor");

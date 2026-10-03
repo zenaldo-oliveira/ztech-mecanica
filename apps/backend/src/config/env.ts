@@ -7,6 +7,7 @@ const envSchema = z.object({
   HOST: z.string().min(1),
   PORT: z.coerce.number().int().min(1).max(65535),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]),
+  DATABASE_URL: z.string().regex(/^postgres(ql)?:\/\//, "URL PostgreSQL inválida"),
 });
 
 export type Env = z.infer<typeof envSchema>;
