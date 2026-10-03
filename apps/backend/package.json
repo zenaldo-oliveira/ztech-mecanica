@@ -8,12 +8,20 @@
   },
   "scripts": {
     "build": "tsc",
-    "dev": "tsc --watch --noEmit",
-    "test": "echo no-tests-yet"
+    "dev": "tsx watch --env-file=.env src/index.ts",
+    "start": "node --env-file=.env dist/index.js",
+    "typecheck": "tsc -p tsconfig.check.json",
+    "test": "vitest run"
   },
   "devDependencies": {
     "@types/node": "^20",
-    "typescript": "^5"
+    "tsx": "^4.23.15",
+    "typescript": "^5",
+    "vitest": "^5.0.3"
   },
-  "packageManager": "pnpm@10.34.5"
+  "packageManager": "pnpm@10.34.5",
+  "dependencies": {
+    "fastify": "^5.12.5",
+    "zod": "^4.6.5"
+  }
 }
