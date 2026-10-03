@@ -1,0 +1,8 @@
+# Normaliza finais de linha em LF no repositório e no checkout.
+# Essencial para migrations do Prisma, cujo checksum depende do conteúdo exato.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff2 binary
