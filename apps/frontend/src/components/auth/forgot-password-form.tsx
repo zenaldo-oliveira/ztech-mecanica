@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowLeft, Loader2, MailCheck } from "lucide-react";
+import { ArrowLeft, Loader2, Mail, MailCheck } from "lucide-react";
 import { forgotPasswordInputSchema } from "@ztech/validation";
 
 import { Button } from "@/components/ui/button";
@@ -79,6 +79,7 @@ export function ForgotPasswordForm() {
           autoComplete="email"
           inputMode="email"
           autoFocus
+          icon={Mail}
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           error={fieldErrors.email}

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { KeyRound, Loader2, ShieldCheck } from "lucide-react";
+import { KeyRound, Loader2, LockKeyhole, ShieldCheck } from "lucide-react";
 import { PASSWORD_MIN_LENGTH, resetPasswordInputSchema } from "@ztech/validation";
 
 import { Button } from "@/components/ui/button";
@@ -116,6 +116,7 @@ export function ResetPasswordForm() {
           name="new-password"
           autoComplete="new-password"
           autoFocus
+          icon={LockKeyhole}
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           error={fieldErrors.password}
@@ -125,6 +126,7 @@ export function ResetPasswordForm() {
           label="Confirme a nova senha"
           name="confirm-password"
           autoComplete="new-password"
+          icon={LockKeyhole}
           value={confirmation}
           onChange={(event) => setConfirmation(event.target.value)}
           error={fieldErrors.confirmation}

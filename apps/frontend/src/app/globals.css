@@ -165,3 +165,197 @@
     display: none;
   }
 }
+/* ------------------------------------------------------------------------- */
+/* Telas de autenticação — movimento (somente transform/opacity).            */
+/* Desligado por completo com prefers-reduced-motion.                        */
+/* ------------------------------------------------------------------------- */
+
+@keyframes auth-rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes auth-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes auth-float-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 24px, 0) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes auth-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes auth-glow-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(-6%, 4%, 0) scale(1.08);
+  }
+}
+
+@keyframes auth-scan {
+  from {
+    transform: translate3d(0, -100%, 0);
+  }
+  to {
+    transform: translate3d(0, 100%, 0);
+  }
+}
+
+@keyframes auth-progress {
+  from {
+    transform: translate3d(-100%, 0, 0);
+  }
+  to {
+    transform: translate3d(250%, 0, 0);
+  }
+}
+
+@keyframes auth-shake {
+  0%,
+  100% {
+    transform: none;
+  }
+  20%,
+  60% {
+    transform: translate3d(-4px, 0, 0);
+  }
+  40%,
+  80% {
+    transform: translate3d(4px, 0, 0);
+  }
+}
+
+@keyframes auth-pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.8);
+  }
+}
+
+@layer components {
+  /* Entrada sequencial: atraso via --auth-delay no style do elemento. */
+  .auth-enter {
+    animation: auth-rise 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation-delay: var(--auth-delay, 0ms);
+  }
+  .auth-fade-in {
+    animation: auth-fade 1200ms ease-out both;
+    animation-delay: var(--auth-delay, 0ms);
+  }
+  .auth-float-in {
+    animation: auth-float-in 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation-delay: var(--auth-delay, 0ms);
+  }
+
+  /* Fundo: movimentos lentos e discretos. */
+  .auth-spin-slow {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: auth-spin 90s linear infinite;
+  }
+  .auth-spin-reverse {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: auth-spin 140s linear infinite reverse;
+  }
+  .auth-glow {
+    animation: auth-glow-drift 18s ease-in-out infinite;
+  }
+  .auth-scan {
+    animation: auth-scan 9s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  }
+  .auth-pulse-dot {
+    animation: auth-pulse-dot 2.4s ease-in-out infinite;
+  }
+
+  /* Grade técnica que esmaece nas bordas. */
+  .auth-grid {
+    background-image:
+      linear-gradient(to right, color-mix(in oklab, var(--sidebar-foreground) 7%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in oklab, var(--sidebar-foreground) 7%, transparent) 1px, transparent 1px);
+    background-size: 44px 44px;
+    mask-image: radial-gradient(ellipse 80% 70% at 60% 40%, black 30%, transparent 85%);
+  }
+
+  /* Barra de progresso indeterminada do envio. */
+  .auth-progress-bar {
+    animation: auth-progress 1.1s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  }
+
+  /* Feedback de erro: tremida curta e única. */
+  .auth-shake {
+    animation: auth-shake 380ms cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  }
+
+  /* Brilho que atravessa o botão no hover. */
+  .auth-shine {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+  }
+  .auth-shine::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: linear-gradient(110deg, transparent 30%, rgb(255 255 255 / 0.22) 50%, transparent 70%);
+    transform: translate3d(-120%, 0, 0);
+    transition: transform 700ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .auth-shine:hover:not(:disabled)::after {
+    transform: translate3d(120%, 0, 0);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .auth-enter,
+    .auth-fade-in,
+    .auth-float-in,
+    .auth-spin-slow,
+    .auth-spin-reverse,
+    .auth-glow,
+    .auth-scan,
+    .auth-pulse-dot,
+    .auth-shake {
+      animation: none;
+    }
+    .auth-progress-bar {
+      animation: none;
+      transform: none;
+      width: 100%;
+      opacity: 0.6;
+    }
+    .auth-shine::after {
+      display: none;
+    }
+  }
+}
