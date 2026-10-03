@@ -2,6 +2,7 @@ import type { Role } from "@ztech/validation";
 
 import type { Env } from "../../src/config/env.js";
 import type { PrismaClient } from "../../src/db/client.js";
+import { hashPassword } from "../../src/lib/password.js";
 import { createSessionService } from "../../src/modules/auth/session-service.js";
 import { syncRbacCatalog } from "../../src/modules/rbac/catalog-sync.js";
 import { SESSION_COOKIE_NAME } from "../../src/plugins/auth.js";
@@ -47,6 +48,33 @@ export async function createUserWithSession(
   }
   const { token } = await createSessionService(prisma, options.now).create({ tenantId, userId: user.id });
   return { id: user.id, tenantId, email, token, cookie: `${SESSION_COOKIE_NAME}=${token}` };
+}
+
+/** Usuário com senha real (Argon2id), sem sessão — para testar o login. */
+export async function createUserWithPassword(
+  prisma: PrismaClient,
+  tenantId: string,
+  options: { email: string; password: string; roles?: Role[]; status?: "ACTIVE" | "BLOCKED" | "INVITED" },
+) {
+  const user = await prisma.user.create({
+    data: {
+      tenantId,
+      name: "Usuário com senha",
+      email: options.email,
+      passwordHash: options.status === "INVITED" ? null : await hashPassword(options.password),
+      status: options.status ?? "ACTIVE",
+    },
+  });
+  const roles = options.roles ?? ["OWNER"];
+  const roleRows = await prisma.role.findMany({ where: { key: { in: roles } }, select: { id: true } });
+  await prisma.userRole.createMany({ data: roleRows.map((role) => ({ tenantId, userId: user.id, roleId: role.id })) });
+  return user;
+}
+
+/** Extrai o cookie de sessão de uma resposta do app.inject. */
+export function sessionCookieFrom(response: { cookies: { name: string; value: string }[] }): string | undefined {
+  const cookie = response.cookies.find((item) => item.name === SESSION_COOKIE_NAME);
+  return cookie ? `${SESSION_COOKIE_NAME}=${cookie.value}` : undefined;
 }
 
 /** Duas oficinas (A e B) com um OWNER cada e um VIEWER em A. */

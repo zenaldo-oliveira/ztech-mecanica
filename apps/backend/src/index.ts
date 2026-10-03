@@ -19,6 +19,7 @@ async function main() {
   const env = loadEnvOrExit();
   const prisma = createPrismaClient(env.DATABASE_URL);
   const app = buildApp({ env, prisma });
+
   app.addHook("onClose", async () => {
     await prisma.$disconnect();
   });
@@ -28,11 +29,16 @@ async function main() {
     await app.close();
     process.exit(0);
   };
+
   process.once("SIGINT", () => void shutdown("SIGINT"));
   process.once("SIGTERM", () => void shutdown("SIGTERM"));
 
   try {
     await app.listen({ host: env.HOST, port: env.PORT });
+
+    app.log.info(
+      `🚀 ZTech Oficina API rodando em http://${env.HOST}:${env.PORT}`,
+    );
   } catch (error) {
     app.log.fatal({ err: error }, "falha ao iniciar o servidor");
     process.exit(1);

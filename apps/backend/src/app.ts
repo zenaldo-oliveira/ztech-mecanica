@@ -52,6 +52,7 @@ export function buildApp({ env, prisma, logStream, now }: BuildAppOptions): Fast
       prisma,
       sessionService: createSessionService(prisma, now),
       secureCookies: env.NODE_ENV === "production",
+      now,
     });
     app.register(apiV1Routes, { prefix: "/api/v1" });
   }

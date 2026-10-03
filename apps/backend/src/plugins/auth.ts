@@ -30,7 +30,12 @@ declare module "fastify" {
     auth: AuthContext | null;
   }
   interface FastifyInstance {
+    /** PrismaClient sem escopo — somente para infraestrutura (auth). Domínio usa request.auth.db. */
+    prisma: PrismaClient;
+    now: () => Date;
     sessionService: SessionService;
+    /** Opções do cookie de sessão para o ambiente atual (fonte única). */
+    sessionCookieOptions: ReturnType<typeof sessionCookieOptions>;
     /** preHandler: exige sessão válida e monta o AuthContext. */
     authenticate: Hook;
     /** preHandler: exige a permissão (recurso.ação). Usar sempre depois de `authenticate`. */
@@ -42,9 +47,14 @@ export interface AuthPluginOptions {
   prisma: PrismaClient;
   sessionService: SessionService;
   secureCookies: boolean;
+  now?: () => Date;
 }
 
-/** Opções do cookie de sessão (docs/architecture/autenticacao.md §4). */
+/**
+ * Opções do cookie de sessão (docs/architecture/autenticacao.md §4).
+ * HttpOnly sempre; Secure em produção; SameSite=Lax (frontend e API na mesma origem
+ * via rewrite do Next). Sem Max-Age: a validade real é controlada no servidor.
+ */
 export function sessionCookieOptions(secure: boolean) {
   return { httpOnly: true, secure, sameSite: "lax" as const, path: "/" };
 }
@@ -59,17 +69,20 @@ export function auditRequestInfo(request: FastifyRequest): AuditRequestInfo {
 }
 
 export const authPlugin = fp<AuthPluginOptions>(
-  async (app, { prisma, sessionService, secureCookies }) => {
+  async (app, { prisma, sessionService, secureCookies, now = () => new Date() }) => {
     await app.register(cookie);
 
     app.decorateRequest("auth", null);
+    app.decorate("prisma", prisma);
+    app.decorate("now", now);
     app.decorate("sessionService", sessionService);
+    app.decorate("sessionCookieOptions", sessionCookieOptions(secureCookies));
 
     app.decorate("authenticate", async (request: FastifyRequest, reply: FastifyReply) => {
       const token = request.cookies[SESSION_COOKIE_NAME];
       const session = await sessionService.resolve(token);
       if (!session) {
-        if (token) reply.clearCookie(SESSION_COOKIE_NAME, sessionCookieOptions(secureCookies));
+        if (token) reply.clearCookie(SESSION_COOKIE_NAME, app.sessionCookieOptions);
         throw unauthorized();
       }
 
