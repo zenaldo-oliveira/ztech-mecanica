@@ -26,11 +26,15 @@ interface AuthCardProps {
  * Cartão central das telas de autenticação. Entrada curta (opacity + translateY + scale);
  * herda os tokens do tema escuro pelo escopo `.dark` da moldura.
  */
-export function AuthCard({ children, leaving = false, className }: AuthCardProps) {
+export function AuthCard({
+  children,
+  leaving = false,
+  className,
+}: AuthCardProps) {
   return (
     <section
       className={cn(
-        "relative w-full max-w-[25rem] rounded-2xl border border-white/10 bg-card/60 p-7 shadow-[0_30px_80px_-20px_rgb(0_0_0/0.75),inset_0_1px_0_rgb(255_255_255/0.06)] backdrop-blur-2xl backdrop-saturate-150 sm:p-9",
+        "relative w-full max-w-[25rem] rounded-2xl border border-white/10 bg-slate-950/40 p-7 shadow-[0_30px_80px_-20px_rgb(0_0_0/0.75),inset_0_1px_0_rgb(255_255_255/0.06)] backdrop-blur-2xl backdrop-saturate-150 sm:p-9",
         leaving ? "auth-card-leave" : "auth-card-enter",
         className,
       )}
