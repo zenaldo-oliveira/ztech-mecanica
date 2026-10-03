@@ -7,6 +7,7 @@ import type { PrismaClient } from "./db/client.js";
 import { createSessionService } from "./modules/auth/session-service.js";
 import { authPlugin } from "./plugins/auth.js";
 import { registerErrorHandling } from "./plugins/error-handler.js";
+import { apiV1Routes } from "./routes/api-v1.js";
 import { healthRoutes } from "./routes/health.js";
 
 export const REQUEST_ID_HEADER = "x-request-id";
@@ -52,6 +53,7 @@ export function buildApp({ env, prisma, logStream, now }: BuildAppOptions): Fast
       sessionService: createSessionService(prisma, now),
       secureCookies: env.NODE_ENV === "production",
     });
+    app.register(apiV1Routes, { prefix: "/api/v1" });
   }
 
   return app;
