@@ -61,9 +61,11 @@ Banco de Dados
 
 # 3. Estrutura de Aplicações (Decisão)
 
-Nesta fase, `apps/frontend` e `apps/backend` permanecem **aplicações separadas e independentes** — sem workspace pnpm unificado na raiz, sem Turborepo, sem pacotes compartilhados (`packages/*`). Essa é uma decisão explícita (`docs/decisions/ADR-001-stack.md`, decisão 8), não um estado transitório assumido implicitamente.
+O repositório é um **monorepo com pnpm workspaces e Turborepo** (`docs/decisions/ADR-002-monorepo.md`, que substitui a decisão 8 do ADR-001).
 
-Consequência direta: até que essa decisão mude, não existe um pacote de tipos/schemas compartilhado entre `apps/backend` e `apps/frontend` — contratos de API (tipos de request/response) são replicados manualmente em cada lado, ou o frontend consome a API tratando-a como um serviço externo. A necessidade futura de compartilhar tipos (ex.: via `packages/types`) é um gatilho já identificado para revisitar esta decisão, mas não é implementada agora.
+- `apps/frontend` (`@ztech/frontend`) e `apps/backend` (`@ztech/backend`) continuam sendo aplicações implantadas de forma independente;
+- contratos compartilhados (schemas Zod, enums de domínio, tipos de request/response) ficam em `packages/*`, criados apenas quando houver código real para compartilhar — nunca replicados manualmente em cada aplicação;
+- tarefas (`build`, `lint`, `typecheck`, `test`) são orquestradas pelo Turborepo a partir da raiz.
 
 ---
 

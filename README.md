@@ -15,7 +15,7 @@ Detalhes completos do produto, arquitetura e regras de desenvolvimento estão em
 - **Validação:** Zod
 - **Testes:** Vitest, Playwright
 
-`apps/frontend` e `apps/backend` são aplicações separadas e independentes (sem monorepo/Turborepo) — ver `docs/decisions/ADR-001-stack.md` e `docs/architecture/arquitetura.md`.
+Monorepo com pnpm workspaces e Turborepo (`docs/decisions/ADR-002-monorepo.md`). Comandos na raiz: `pnpm install`, `pnpm dev`, `pnpm check` (lint + typecheck + testes + build).
 
 ## Estrutura do projeto
 

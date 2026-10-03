@@ -224,7 +224,7 @@ Stack inicialmente definida:
 
 ### Estrutura de Apps
 
-`apps/frontend` e `apps/backend` são aplicações separadas e independentes, sem workspace pnpm unificado na raiz, sem Turborepo e sem pacotes compartilhados (`packages/*`). Essa é uma decisão explícita — não um estado transitório — registrada em `docs/decisions/ADR-001-stack.md` (decisão 8) e detalhada em `docs/architecture/arquitetura.md` §3.
+Monorepo com pnpm workspaces e Turborepo (`docs/decisions/ADR-002-monorepo.md`, que substitui a decisão 8 do ADR-001). As aplicações permanecem em `apps/frontend` e `apps/backend`; pacotes compartilhados ficam em `packages/*` e só são criados quando houver código real para compartilhar. Validação completa na raiz: `pnpm check`.
 
 ### Testes
 
@@ -265,7 +265,7 @@ ztech-mecanica/
 └── .gitignore
 ```
 
-Não há diretório `packages/` nesta fase — ver decisão registrada em `docs/decisions/ADR-001-stack.md` (decisão 8).
+`packages/` é criado sob demanda para código compartilhado entre as aplicações — ver `docs/decisions/ADR-002-monorepo.md`.
 
 ---
 

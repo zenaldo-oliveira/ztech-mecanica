@@ -53,7 +53,7 @@ Esta seção registra a justificativa técnica; a escolha em si (Fastify) foi de
 |5|Multi-tenancy via `tenantId` na camada de aplicação/Prisma, com caminho de evolução para PostgreSQL RLS|`docs/architecture/multi-tenant.md`|
 |6|Autenticação por sessão server-side, cookie HttpOnly/Secure/SameSite, sem token em localStorage|`docs/architecture/autenticacao.md`|
 |7|RBAC com perfis, convenção de permissões e matriz (escopo: módulos já documentados)|`docs/architecture/autorizacao.md`|
-|8|`apps/frontend` e `apps/backend` permanecem separados nesta fase; sem Turborepo/monorepo|`docs/architecture/arquitetura.md`|
+|8|~~`apps/frontend` e `apps/backend` permanecem separados nesta fase; sem Turborepo/monorepo~~ — **substituída pelo ADR-002 (2026-10-02)**|`docs/decisions/ADR-002-monorepo.md`|
 |9|API versionada em `/api/v1`|`docs/architecture/arquitetura.md`|
 |10|Zod para validação na borda da API|`docs/architecture/arquitetura.md`|
 |11|Vitest para testes de backend|`docs/architecture/testes.md`|
