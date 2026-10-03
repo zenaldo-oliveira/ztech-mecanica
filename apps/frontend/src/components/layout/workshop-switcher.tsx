@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { mockSession } from "@/lib/mock/session";
+import { tenantDisplayName, useSession } from "@/components/auth/session-provider";
 
 /**
  * Current workshop (tenant). Each user belongs to a single workshop for now
@@ -21,7 +21,9 @@ import { mockSession } from "@/lib/mock/session";
  * the menu is ready to list more units if multi-unit access is approved.
  */
 export function WorkshopSwitcher() {
-  const { tenant } = mockSession;
+  const me = useSession();
+  const name = tenantDisplayName(me);
+  const statusLabel = me.tenant.status === "TRIAL" ? "Período de teste" : "Ativa";
 
   return (
     <DropdownMenu>
@@ -29,12 +31,12 @@ export function WorkshopSwitcher() {
         <Button
           variant="ghost"
           className="h-9 max-w-44 gap-2 px-2 xl:max-w-56"
-          aria-label={`Oficina atual: ${tenant.name}`}
+          aria-label={`Oficina atual: ${name}`}
         >
           <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
             <Store className="size-3.5" aria-hidden="true" />
           </span>
-          <span className="truncate text-sm font-medium">{tenant.name}</span>
+          <span className="truncate text-sm font-medium">{name}</span>
           <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
         </Button>
       </DropdownMenuTrigger>
@@ -45,12 +47,10 @@ export function WorkshopSwitcher() {
             <Store className="size-4" aria-hidden="true" />
           </span>
           <span className="flex min-w-0 flex-1 flex-col">
-            <span className="truncate font-medium">{tenant.name}</span>
-            <span className="truncate text-xs text-muted-foreground">
-              {tenant.document} · {tenant.city}
-            </span>
+            <span className="truncate font-medium">{name}</span>
+            <span className="truncate text-xs text-muted-foreground">{me.tenant.legalName}</span>
             <Badge variant="secondary" className="mt-1.5 w-fit">
-              Plano {tenant.plan}
+              {statusLabel}
             </Badge>
           </span>
           <Check className="mt-1 size-4 text-primary" aria-hidden="true" />

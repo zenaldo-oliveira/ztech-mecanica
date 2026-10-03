@@ -50,6 +50,12 @@ pnpm check                                     # validação completa: schema, l
 
 Os testes do backend usam o banco `ztech_test` (nunca o de desenvolvimento) e falham explicitamente se o PostgreSQL não estiver disponível.
 
+### Acesso de demonstração
+
+Após o seed, entre em `http://localhost:3000/login` com um dos usuários fictícios (ex.: `dono@oficina-alfa.test` ou `dono@oficina-beta.test`) e a senha definida em `SEED_DEMO_PASSWORD` no `apps/backend/.env`. Em desenvolvimento, os e-mails de recuperação de senha não são enviados: o `MockEmailProvider` grava cada mensagem em `apps/backend/.dev-mail/`.
+
+O frontend chama a API pela mesma origem (`/api/*`, repassado ao backend por `API_INTERNAL_URL` — ver `apps/frontend/.env.example`); a sessão vive apenas em um cookie HttpOnly.
+
 ## Documentação
 
 - Visão de produto: `docs/product/`
