@@ -22,3 +22,6 @@ dist/
 # OS
 .DS_Store
 Thumbs.db
+
+# Prisma Client gerado (prisma generate)
+src/generated/

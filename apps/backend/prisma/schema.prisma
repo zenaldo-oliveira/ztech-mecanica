@@ -1,0 +1,43 @@
+// Convenções (docs/database/modelo-dados.md, ADR-001):
+// - id: UUID v7 gerado pela aplicação (Prisma), armazenado como uuid;
+// - tabelas e colunas em snake_case no banco, camelCase no código;
+// - created_at/updated_at em todas as tabelas, timestamptz;
+// - dados de uma oficina sempre com tenant_id (a partir da Fase 1B).
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  runtime             = "nodejs"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Situação operacional da oficina na plataforma. A situação da assinatura
+/// (TRIALING, ACTIVE, PAST_DUE…) pertence a Subscription (Fase 6).
+enum TenantStatus {
+  TRIAL
+  ACTIVE
+  SUSPENDED
+  CANCELLED
+
+  @@map("tenant_status")
+}
+
+/// Oficina — raiz do isolamento multi-tenant.
+model Tenant {
+  id        String       @id @default(uuid(7)) @db.Uuid
+  legalName String       @map("legal_name") @db.VarChar(160)
+  tradeName String?      @map("trade_name") @db.VarChar(160)
+  /// CPF (11) ou CNPJ (14), somente dígitos. Formato garantido por CHECK na migration.
+  document  String       @unique @db.VarChar(14)
+  status    TenantStatus @default(TRIAL)
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([status])
+  @@map("tenants")
+}

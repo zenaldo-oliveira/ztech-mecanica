@@ -10,4 +10,6 @@ ignoredBuiltDependencies:
 
 # Dependências autorizadas a executar scripts de instalação.
 onlyBuiltDependencies:
+  - "@prisma/engines"
   - esbuild
+  - prisma
