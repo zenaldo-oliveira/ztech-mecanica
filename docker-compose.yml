@@ -1,0 +1,27 @@
+# Infraestrutura de DESENVOLVIMENTO local. Não usar em produção:
+# produção usa PostgreSQL gerenciado com backup/PITR (docs/backup.md — Fase 1D).
+name: ztech-oficina
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ztech-oficina-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ztech}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ztech_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-ztech}
+    ports:
+      # Exposto somente em localhost.
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - ztech-pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  ztech-pgdata:
