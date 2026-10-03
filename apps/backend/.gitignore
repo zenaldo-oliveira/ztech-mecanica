@@ -25,3 +25,6 @@ Thumbs.db
 
 # Prisma Client gerado (prisma generate)
 src/generated/
+
+# E-mails gravados pelo MockEmailProvider em desenvolvimento
+.dev-mail/

@@ -5,6 +5,8 @@ import Fastify, { LogController, type FastifyInstance } from "fastify";
 import type { Env } from "./config/env.js";
 import type { PrismaClient } from "./db/client.js";
 import { createSessionService } from "./modules/auth/session-service.js";
+import type { EmailProvider } from "./modules/email/email-provider.js";
+import { MockEmailProvider } from "./modules/email/mock-email-provider.js";
 import { authPlugin } from "./plugins/auth.js";
 import { registerErrorHandling } from "./plugins/error-handler.js";
 import { apiV1Routes } from "./routes/api-v1.js";
@@ -23,9 +25,11 @@ export interface BuildAppOptions {
   logStream?: NodeJS.WritableStream;
   /** Relógio injetável (testes de expiração de sessão). */
   now?: () => Date;
+  /** Provedor de e-mail. Padrão: MockEmailProvider em memória (nunca envia). */
+  emailProvider?: EmailProvider;
 }
 
-export function buildApp({ env, prisma, logStream, now }: BuildAppOptions): FastifyInstance {
+export function buildApp({ env, prisma, logStream, now, emailProvider }: BuildAppOptions): FastifyInstance {
   const app = Fastify({
     logger: {
       level: env.LOG_LEVEL,
@@ -52,6 +56,8 @@ export function buildApp({ env, prisma, logStream, now }: BuildAppOptions): Fast
       prisma,
       sessionService: createSessionService(prisma, now),
       secureCookies: env.NODE_ENV === "production",
+      emailProvider: emailProvider ?? new MockEmailProvider(),
+      appUrl: env.APP_URL,
       now,
     });
     app.register(apiV1Routes, { prefix: "/api/v1" });

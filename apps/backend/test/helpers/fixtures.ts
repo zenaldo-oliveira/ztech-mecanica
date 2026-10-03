@@ -13,6 +13,9 @@ export const testEnv: Env = {
   PORT: 3333,
   LOG_LEVEL: "silent",
   DATABASE_URL: "postgresql://unused@127.0.0.1:1/unused",
+  APP_URL: "http://localhost:3000",
+  EMAIL_PROVIDER: "mock",
+  DEV_MAIL_DIR: ".dev-mail",
 };
 
 export interface TestUser {

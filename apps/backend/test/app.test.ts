@@ -13,6 +13,9 @@ const testEnv: Env = {
   PORT: 3333,
   LOG_LEVEL: "info",
   DATABASE_URL: DB_URL,
+  APP_URL: "http://localhost:3000",
+  EMAIL_PROVIDER: "mock",
+  DEV_MAIL_DIR: ".dev-mail",
 };
 
 function createLogCollector() {
@@ -100,5 +103,18 @@ describe("loadEnv", () => {
   it("converte PORT para número", () => {
     const env = loadEnv({ NODE_ENV: "test", HOST: "h", PORT: "8080", LOG_LEVEL: "info", DATABASE_URL: DB_URL });
     expect(env.PORT).toBe(8080);
+  });
+
+  it("em produção exige APP_URL https e proíbe o provedor de e-mail mock", () => {
+    const production = { NODE_ENV: "production", HOST: "h", PORT: "1", LOG_LEVEL: "info", DATABASE_URL: DB_URL };
+
+    expect(() => loadEnv(production)).toThrow(/APP_URL/);
+    expect(() => loadEnv(production)).toThrow(/EMAIL_PROVIDER/);
+    expect(() => loadEnv({ ...production, APP_URL: "http://inseguro.test" })).toThrow(/APP_URL/);
+  });
+
+  it("em desenvolvimento usa padrões seguros para e-mail e APP_URL", () => {
+    const env = loadEnv({ NODE_ENV: "development", HOST: "h", PORT: "1", LOG_LEVEL: "info", DATABASE_URL: DB_URL });
+    expect(env).toMatchObject({ APP_URL: "http://localhost:3000", EMAIL_PROVIDER: "mock", DEV_MAIL_DIR: ".dev-mail" });
   });
 });

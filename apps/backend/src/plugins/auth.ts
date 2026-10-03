@@ -9,6 +9,7 @@ import { forbidden, unauthorized } from "../lib/errors.js";
 import { recordUserAudit, type AuditRequestInfo } from "../modules/audit/audit-service.js";
 import { loadUserAuthorization } from "../modules/auth/authorization.js";
 import type { SessionService } from "../modules/auth/session-service.js";
+import type { EmailProvider } from "../modules/email/email-provider.js";
 
 export const SESSION_COOKIE_NAME = "ztech_session";
 
@@ -36,6 +37,9 @@ declare module "fastify" {
     sessionService: SessionService;
     /** Opções do cookie de sessão para o ambiente atual (fonte única). */
     sessionCookieOptions: ReturnType<typeof sessionCookieOptions>;
+    emailProvider: EmailProvider;
+    /** URL pública do frontend (links de e-mail). */
+    appUrl: string;
     /** preHandler: exige sessão válida e monta o AuthContext. */
     authenticate: Hook;
     /** preHandler: exige a permissão (recurso.ação). Usar sempre depois de `authenticate`. */
@@ -47,6 +51,8 @@ export interface AuthPluginOptions {
   prisma: PrismaClient;
   sessionService: SessionService;
   secureCookies: boolean;
+  emailProvider: EmailProvider;
+  appUrl: string;
   now?: () => Date;
 }
 
@@ -69,7 +75,7 @@ export function auditRequestInfo(request: FastifyRequest): AuditRequestInfo {
 }
 
 export const authPlugin = fp<AuthPluginOptions>(
-  async (app, { prisma, sessionService, secureCookies, now = () => new Date() }) => {
+  async (app, { prisma, sessionService, secureCookies, emailProvider, appUrl, now = () => new Date() }) => {
     await app.register(cookie);
 
     app.decorateRequest("auth", null);
@@ -77,6 +83,8 @@ export const authPlugin = fp<AuthPluginOptions>(
     app.decorate("now", now);
     app.decorate("sessionService", sessionService);
     app.decorate("sessionCookieOptions", sessionCookieOptions(secureCookies));
+    app.decorate("emailProvider", emailProvider);
+    app.decorate("appUrl", appUrl);
 
     app.decorate("authenticate", async (request: FastifyRequest, reply: FastifyReply) => {
       const token = request.cookies[SESSION_COOKIE_NAME];

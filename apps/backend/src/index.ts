@@ -1,6 +1,7 @@
 import { buildApp } from "./app.js";
 import { EnvValidationError, loadEnv, type Env } from "./config/env.js";
 import { createPrismaClient } from "./db/client.js";
+import { createEmailProvider } from "./modules/email/create-email-provider.js";
 
 function loadEnvOrExit(): Env {
   try {
@@ -18,7 +19,7 @@ function loadEnvOrExit(): Env {
 async function main() {
   const env = loadEnvOrExit();
   const prisma = createPrismaClient(env.DATABASE_URL);
-  const app = buildApp({ env, prisma });
+  const app = buildApp({ env, prisma, emailProvider: createEmailProvider(env) });
 
   app.addHook("onClose", async () => {
     await prisma.$disconnect();

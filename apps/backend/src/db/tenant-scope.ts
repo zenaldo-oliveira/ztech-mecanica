@@ -22,7 +22,7 @@ import type { PrismaClient } from "./client.js";
  */
 
 /** Modelos que pertencem a uma oficina (possuem coluna tenant_id). */
-const TENANT_OWNED_MODELS = new Set(["User", "Session", "UserRole", "AuditLog"]);
+const TENANT_OWNED_MODELS = new Set(["User", "Session", "UserRole", "AuditLog", "PasswordResetToken"]);
 /** Catálogos globais: leitura permitida, escrita apenas pela infraestrutura. */
 const GLOBAL_READONLY_MODELS = new Set(["Role", "Permission", "RolePermission"]);
 /** Modelos inacessíveis para código de oficina. */
