@@ -24,7 +24,7 @@ Recurso / Ação
 
 - **Perfil (Role):** conjunto nomeado de permissões, atribuído a um usuário dentro de um tenant.
 - **Permissão:** autorização atômica para executar uma ação sobre um recurso, no formato `recurso.acao` (convenção já usada em `docs/modules/clientes.md` §11, ex.: `customers.read`, `customers.create`).
-- Um usuário pode possuir **um ou mais** perfis; as permissões efetivas são a união das permissões de todos os seus perfis (implementado: `UserRole` N:N por oficina).
+- Um usuário pode possuir **um ou mais** perfis: a relação Usuário ↔ Perfil é **N:N**, implementada pela tabela `UserRole` (sempre dentro da oficina do usuário). As permissões efetivas são a união das permissões de todos os seus perfis.
 
 ---
 
@@ -49,17 +49,16 @@ O sistema implementa esses perfis e mais o perfil **somente leitura** (`VIEWER`)
 
 Toda permissão segue o formato `recurso.acao`, onde `recurso` corresponde ao módulo/entidade e `acao` a uma operação sobre ele.
 
-Ações padrão observadas na documentação existente (`docs/modules/clientes.md` §11):
+Ações básicas usadas no catálogo:
 
 ```text
 read
 create
 update
 delete
-export
 ```
 
-Módulos podem definir ações adicionais específicas de seu domínio (ex.: `view_history`, `manage_contacts`, também já usados em Clientes). Cada módulo é responsável por catalogar suas próprias permissões em sua documentação (`docs/modules/*.md`), seguindo esta convenção.
+Módulos definem ações adicionais específicas de seu domínio (ex.: `view_history`, `manage_contacts`, `deactivate`, `cancel`, `issue`). As permissões existentes são somente as do catálogo aprovado (seção 5.2) — uma ação citada na documentação de um módulo, mas fora do catálogo (ex.: `customers.export`), não existe no sistema. Cada módulo documenta suas permissões em `docs/modules/*.md`, seguindo esta convenção.
 
 ---
 
@@ -134,7 +133,12 @@ ser concedida a qualquer perfil na próxima sincronização (`catalog-sync.ts` r
 
 A verificação de permissão ocorre no backend, a cada requisição, a partir do perfil resolvido pela sessão autenticada (`docs/architecture/autenticacao.md` §4) — nunca a partir de informação enviada pelo cliente e nunca simulada apenas no frontend (`CLAUDE.md` §13).
 
-O mecanismo técnico concreto (guard/hook do Fastify, decorator, middleware) será definido na fase de implementação — fora do escopo desta rodada, que é documentação.
+Mecanismo implementado (`apps/backend/src/plugins/auth.ts`):
+
+- `app.authenticate` (preHandler) valida a sessão e carrega os perfis e as permissões efetivas do usuário na oficina da sessão (`apps/backend/src/modules/auth/authorization.ts`);
+- `app.requirePermission("recurso.acao")` (preHandler, sempre depois de `authenticate`) libera a rota somente se a permissão estiver entre as efetivas; caso contrário responde `403 FORBIDDEN` e registra `ACCESS_DENIED` na auditoria;
+- a decisão é sempre por **permissão**, nunca pelo nome do perfil;
+- no frontend, as permissões de `/api/v1/me` servem apenas para adaptar a interface.
 
 ---
 
@@ -144,10 +148,15 @@ Toda concessão, alteração ou revogação de perfil/permissão de um usuário 
 
 ---
 
-# 9. Pendências
+# 9. Situação das decisões
 
-- ~~Cardinalidade Usuário↔Perfil~~ — **resolvida**: N:N (seção 2).
-- ~~Preenchimento da matriz perfil×permissão~~ — **resolvida**: seção 5 (aprovada no Prompt 04B).
-- Fluxo de administração de perfis/permissões pela própria oficina (self-service) vs. apenas suporte — não
-  definido; não bloqueia.
-- Chaves definitivas de Financeiro e Fiscal — revisar quando esses módulos forem especificados (seção 5.2).
+Decididas e implementadas:
+
+- relação Usuário ↔ Perfil: N:N via `UserRole` (seção 2);
+- catálogo de permissões e matriz perfil × permissão: seção 5 (aprovados no Prompt 04B, implementados em
+  `packages/validation/src/rbac.ts`).
+
+Em aberto, sem bloquear a autorização atual:
+
+- administração de perfis/permissões pela própria oficina (self-service) vs. apenas pelo suporte;
+- revisão das chaves de Financeiro e Fiscal quando esses módulos forem especificados (seção 5.2).
