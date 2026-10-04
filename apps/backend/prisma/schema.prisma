@@ -45,6 +45,7 @@ model Tenant {
   passwordResetTokens PasswordResetToken[]
   settings            TenantSettings?
   sequences           TenantSequence[]
+  customers           Customer[]
 
   @@index([status])
   @@map("tenants")
@@ -304,4 +305,77 @@ model AuditLog {
   @@index([tenantId, entity, entityId])
   @@index([action, createdAt])
   @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Clientes (docs/modules/clientes.md)
+// ---------------------------------------------------------------------------
+
+enum PersonType {
+  INDIVIDUAL
+  BUSINESS
+
+  @@map("person_type")
+}
+
+/// INACTIVE é a exclusão lógica; BLOCKED impede novos atendimentos (clientes.md §8).
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+  BLOCKED
+
+  @@map("customer_status")
+}
+
+enum ContactPreference {
+  WHATSAPP
+  EMAIL
+  PHONE
+  NONE
+
+  @@map("contact_preference")
+}
+
+/// Cliente da oficina (pessoa física ou jurídica). Telefones, documento e CEP somente dígitos.
+model Customer {
+  id                String            @id @default(uuid(7)) @db.Uuid
+  tenantId          String            @map("tenant_id") @db.Uuid
+  /// Número sequencial por oficina (TenantSequence "CUSTOMER"), exibido como CLI-000001. Imutável.
+  number            Int
+  personType        PersonType        @map("person_type")
+  /// Nome completo (INDIVIDUAL) ou razão social (BUSINESS).
+  name              String            @db.VarChar(160)
+  /// Somente BUSINESS (CHECK).
+  tradeName         String?           @map("trade_name") @db.VarChar(160)
+  /// CPF (11) para INDIVIDUAL ou CNPJ (14) para BUSINESS (CHECK). Único por oficina.
+  document          String            @db.VarChar(14)
+  status            CustomerStatus    @default(ACTIVE)
+  phone             String            @db.VarChar(11)
+  whatsapp          String?           @db.VarChar(11)
+  /// Sempre minúsculo (CHECK).
+  email             String?           @db.VarChar(254)
+  secondaryPhone    String?           @map("secondary_phone") @db.VarChar(11)
+  secondaryEmail    String?           @map("secondary_email") @db.VarChar(254)
+  zipCode           String?           @map("zip_code") @db.Char(8)
+  street            String?           @db.VarChar(160)
+  addressNumber     String?           @map("address_number") @db.VarChar(20)
+  complement        String?           @db.VarChar(80)
+  neighborhood      String?           @db.VarChar(80)
+  city              String?           @db.VarChar(80)
+  state             String?           @db.Char(2)
+  contactPreference ContactPreference @map("contact_preference")
+  /// Observações internas.
+  notes             String?           @db.VarChar(2000)
+  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  /// Alvo das FKs compostas (tenant_id, customer_id) de veículos, orçamentos e OS.
+  @@unique([tenantId, id])
+  @@unique([tenantId, number])
+  @@unique([tenantId, document])
+  @@index([tenantId, status])
+  @@index([tenantId, name])
+  @@map("customers")
 }

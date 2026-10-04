@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 
 import { authRoutes } from "../modules/auth/auth.routes.js";
 import { passwordResetRoutes } from "../modules/auth/password-reset.routes.js";
+import { customersRoutes } from "../modules/customers/customers.routes.js";
 import { meRoutes } from "../modules/me/me.routes.js";
 import { usersRoutes } from "../modules/users/users.routes.js";
 
@@ -11,4 +12,5 @@ export async function apiV1Routes(app: FastifyInstance) {
   await app.register(passwordResetRoutes);
   await app.register(meRoutes);
   await app.register(usersRoutes);
+  await app.register(customersRoutes);
 }

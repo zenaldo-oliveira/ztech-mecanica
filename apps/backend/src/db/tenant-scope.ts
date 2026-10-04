@@ -35,6 +35,7 @@ const TENANT_OWNED_MODELS = new Set([
   "PasswordResetToken",
   "TenantSettings",
   "TenantSequence",
+  "Customer",
 ]);
 /** Catálogos globais: leitura permitida, escrita apenas pela infraestrutura. */
 const GLOBAL_READONLY_MODELS = new Set(["Role", "Permission", "RolePermission"]);
@@ -55,9 +56,11 @@ export const MODEL_RELATIONS: Readonly<Record<string, Readonly<Record<string, st
     passwordResetTokens: "PasswordResetToken",
     settings: "TenantSettings",
     sequences: "TenantSequence",
+    customers: "Customer",
   },
   TenantSettings: { tenant: "Tenant" },
   TenantSequence: { tenant: "Tenant" },
+  Customer: { tenant: "Tenant" },
   User: { tenant: "Tenant", roles: "UserRole", sessions: "Session", passwordResetTokens: "PasswordResetToken" },
   Session: { tenant: "Tenant", user: "User" },
   PasswordResetToken: { tenant: "Tenant", user: "User" },
