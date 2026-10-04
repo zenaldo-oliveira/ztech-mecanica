@@ -9,6 +9,6 @@ export function createTestPrisma(): PrismaClient {
 /** Limpa todas as tabelas do banco de testes (TRUNCATE não dispara o trigger de auditoria). */
 export async function resetDatabase(prisma: PrismaClient): Promise<void> {
   await prisma.$executeRawUnsafe(
-    'TRUNCATE TABLE "audit_logs", "password_reset_tokens", "sessions", "user_roles", "users", "platform_users", "role_permissions", "roles", "permissions", "tenants" CASCADE',
+    'TRUNCATE TABLE "audit_logs", "password_reset_tokens", "sessions", "user_roles", "users", "platform_users", "role_permissions", "roles", "permissions", "tenant_sequences", "tenant_settings", "tenants" CASCADE',
   );
 }

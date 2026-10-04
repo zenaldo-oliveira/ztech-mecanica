@@ -43,9 +43,50 @@ model Tenant {
   userRoles           UserRole[]
   auditLogs           AuditLog[]
   passwordResetTokens PasswordResetToken[]
+  settings            TenantSettings?
+  sequences           TenantSequence[]
 
   @@index([status])
   @@map("tenants")
+}
+
+// ---------------------------------------------------------------------------
+// Configuração e numeração por oficina (docs/database/proposta-modelo-nucleo.md §3.1)
+// ---------------------------------------------------------------------------
+
+/// Configurações operacionais da oficina (1:1 com Tenant). Criada sob demanda com os padrões.
+model TenantSettings {
+  tenantId           String   @id @map("tenant_id") @db.Uuid
+  /// Valor-hora padrão dos serviços HOURLY sem valor próprio. Nulo = não configurado
+  /// (docs/modules/servicos.md §5).
+  defaultHourlyRate  Decimal? @map("default_hourly_rate") @db.Decimal(12, 2)
+  /// Validade padrão dos orçamentos em dias (docs/modules/orcamentos.md §4).
+  quoteValidityDays  Int      @default(7) @map("quote_validity_days")
+  /// Permite concluir OS com saldo insuficiente (docs/modules/ordens-servico.md §13.6).
+  allowNegativeStock Boolean  @default(false) @map("allow_negative_stock")
+  /// Fuso horário IANA da oficina.
+  timezone           String   @default("America/Sao_Paulo") @db.VarChar(64)
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@map("tenant_settings")
+}
+
+/// Numeração sequencial por oficina (ex.: OS-000123). `nextValue` é o próximo número a
+/// emitir. Incremento atômico em src/modules/tenant-sequence/tenant-sequence.service.ts.
+model TenantSequence {
+  tenantId  String   @map("tenant_id") @db.Uuid
+  key       String   @db.VarChar(40)
+  nextValue Int      @default(1) @map("next_value")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([tenantId, key])
+  @@map("tenant_sequences")
 }
 
 // ---------------------------------------------------------------------------
