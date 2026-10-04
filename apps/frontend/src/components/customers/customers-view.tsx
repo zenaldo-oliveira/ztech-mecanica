@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/page-header";
 import { CustomerFormSheet } from "@/components/customers/customer-form-sheet";
 import { CustomersPagination } from "@/components/customers/customers-pagination";
-import { CustomersSkeleton } from "@/components/customers/customers-skeleton";
 import { CustomersTable } from "@/components/customers/customers-table";
 import {
   CustomersToolbar,
@@ -18,11 +17,9 @@ import { customers as initialCustomers, type Customer } from "@/lib/mock/custome
 import { onlyDigits } from "@/lib/format-document";
 
 const PAGE_SIZE = 8;
-const LOADING_DELAY_MS = 400;
 
 export function CustomersView() {
   const [allCustomers, setAllCustomers] = useState<Customer[]>(initialCustomers);
-  const [isLoading, setIsLoading] = useState(true);
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<CustomerStatusFilter>("ALL");
@@ -31,11 +28,6 @@ export function CustomersView() {
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | undefined>(undefined);
-
-  useEffect(() => {
-    const timeout = setTimeout(() => setIsLoading(false), LOADING_DELAY_MS);
-    return () => clearTimeout(timeout);
-  }, []);
 
   const filteredCustomers = useMemo(() => {
     const searchDigits = onlyDigits(search);
@@ -94,32 +86,28 @@ export function CustomersView() {
         }
       />
 
-      {isLoading ? (
-        <CustomersSkeleton />
-      ) : (
-        <div className="flex flex-1 flex-col gap-5">
-          <CustomersToolbar
-            search={search}
-            onSearchChange={setSearch}
-            statusFilter={statusFilter}
-            onStatusFilterChange={setStatusFilter}
-            personTypeFilter={personTypeFilter}
-            onPersonTypeFilterChange={setPersonTypeFilter}
+      <div className="flex flex-1 flex-col gap-5">
+        <CustomersToolbar
+          search={search}
+          onSearchChange={setSearch}
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
+          personTypeFilter={personTypeFilter}
+          onPersonTypeFilterChange={setPersonTypeFilter}
+        />
+
+        <div className="flex flex-col">
+          <CustomersTable customers={paginatedCustomers} onEdit={handleEditCustomer} />
+
+          <CustomersPagination
+            page={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredCustomers.length}
+            pageSize={PAGE_SIZE}
+            onPageChange={setPage}
           />
-
-          <div className="flex flex-col">
-            <CustomersTable customers={paginatedCustomers} onEdit={handleEditCustomer} />
-
-            <CustomersPagination
-              page={currentPage}
-              totalPages={totalPages}
-              totalItems={filteredCustomers.length}
-              pageSize={PAGE_SIZE}
-              onPageChange={setPage}
-            />
-          </div>
         </div>
-      )}
+      </div>
 
       <CustomerFormSheet
         open={isFormOpen}
