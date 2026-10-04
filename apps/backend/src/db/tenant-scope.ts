@@ -16,9 +16,14 @@ import type { PrismaClient } from "./client.js";
  * Código de domínio recebe somente este client; o PrismaClient sem escopo fica restrito
  * à infraestrutura (autenticação, seed, jobs da plataforma).
  *
- * Limite conhecido: escritas/leitura aninhadas via relação não são reescritas; as FKs
- * compostas (tenant_id, …) no banco impedem vínculos entre oficinas nesses casos.
- * SQL bruto ($queryRaw/$executeRaw) não passa por aqui e é proibido em código de domínio.
+ * Relações aninhadas (include/select/where/orderBy/data) não recebem `tenantId`: entre
+ * modelos da oficina, as FKs compostas (tenant_id, …) garantem que pai e filho sejam da
+ * mesma oficina. O que o escopo verifica é a saída pelos catálogos globais (sem tenant_id):
+ * a partir deles, nenhuma relação pode voltar a dados de oficina (ex.: Role.userRoles), e
+ * escrita aninhada em catálogo só pode vincular (`connect`) — ver `assertSafeRelations`.
+ * Transações: abrir sempre a partir deste client (`db.$transaction(...)`); o escopo vale
+ * dentro delas. SQL bruto ($queryRaw/$executeRaw) não passa por aqui e é proibido em
+ * código de domínio.
  */
 
 /** Modelos que pertencem a uma oficina (possuem coluna tenant_id). */
@@ -27,6 +32,30 @@ const TENANT_OWNED_MODELS = new Set(["User", "Session", "UserRole", "AuditLog", 
 const GLOBAL_READONLY_MODELS = new Set(["Role", "Permission", "RolePermission"]);
 /** Modelos inacessíveis para código de oficina. */
 const FORBIDDEN_MODELS = new Set(["PlatformUser"]);
+
+/**
+ * Campos de relação de cada modelo → modelo de destino (espelho do schema.prisma).
+ * Usado para seguir relações aninhadas. Um teste compara este mapa com o schema:
+ * modelo ou relação nova exige atualizar aqui.
+ */
+export const MODEL_RELATIONS: Readonly<Record<string, Readonly<Record<string, string>>>> = {
+  Tenant: {
+    users: "User",
+    sessions: "Session",
+    userRoles: "UserRole",
+    auditLogs: "AuditLog",
+    passwordResetTokens: "PasswordResetToken",
+  },
+  User: { tenant: "Tenant", roles: "UserRole", sessions: "Session", passwordResetTokens: "PasswordResetToken" },
+  Session: { tenant: "Tenant", user: "User" },
+  PasswordResetToken: { tenant: "Tenant", user: "User" },
+  Role: { permissions: "RolePermission", userRoles: "UserRole" },
+  Permission: { roles: "RolePermission" },
+  RolePermission: { role: "Role", permission: "Permission" },
+  UserRole: { tenant: "Tenant", user: "User", role: "Role" },
+  PlatformUser: {},
+  AuditLog: { tenant: "Tenant" },
+};
 
 const READ_OPERATIONS = new Set([
   "findUnique",
@@ -119,6 +148,116 @@ function scopeTenantModelArgs(operation: string, args: Args, tenantId: string): 
   throw new TenantScopeViolationError(`Tenant.${operation} não é permitido no escopo da oficina.`);
 }
 
+// ---------------------------------------------------------------------------
+// Relações aninhadas: nenhuma passagem de catálogo global para dados de oficina
+// ---------------------------------------------------------------------------
+
+const LOGICAL_FILTER_KEYS = new Set(["AND", "OR", "NOT"]);
+const RELATION_FILTER_KEYS = ["some", "every", "none", "is", "isNot"];
+
+const asList = (value: unknown): unknown[] => (Array.isArray(value) ? value : [value]);
+
+/** Modelo de destino de `model.field`, ou undefined se não for relação. Bloqueia catálogo → oficina. */
+function relationTarget(model: string, field: string): string | undefined {
+  const target = MODEL_RELATIONS[model]?.[field];
+  if (target && GLOBAL_READONLY_MODELS.has(model) && !GLOBAL_READONLY_MODELS.has(target)) {
+    throw new TenantScopeViolationError(`${model}.${field}: catálogo global não pode levar a dados de oficina.`);
+  }
+  return target;
+}
+
+function checkWhere(model: string, where: unknown): void {
+  for (const [key, value] of Object.entries(asRecord(where))) {
+    if (LOGICAL_FILTER_KEYS.has(key)) {
+      asList(value).forEach((item) => checkWhere(model, item));
+      continue;
+    }
+    const target = relationTarget(model, key);
+    if (!target) continue;
+    const filter = asRecord(value);
+    const operators = RELATION_FILTER_KEYS.filter((operator) => operator in filter);
+    if (operators.length > 0) operators.forEach((operator) => checkWhere(target, filter[operator]));
+    else checkWhere(target, filter); // filtro to-one abreviado
+  }
+}
+
+function checkOrderBy(model: string, orderBy: unknown): void {
+  for (const item of asList(orderBy)) {
+    for (const [key, value] of Object.entries(asRecord(item))) {
+      const target = relationTarget(model, key);
+      if (target) checkOrderBy(target, value);
+    }
+  }
+}
+
+function checkCount(model: string, count: unknown): void {
+  if (count === true) {
+    Object.keys(MODEL_RELATIONS[model] ?? {}).forEach((field) => relationTarget(model, field));
+    return;
+  }
+  for (const [key, value] of Object.entries(asRecord(asRecord(count).select))) {
+    const target = relationTarget(model, key);
+    if (target) checkWhere(target, asRecord(value).where);
+  }
+}
+
+function checkSelection(model: string, selection: unknown): void {
+  for (const [key, value] of Object.entries(asRecord(selection))) {
+    if (key === "_count") {
+      checkCount(model, value);
+      continue;
+    }
+    const target = relationTarget(model, key);
+    if (target) checkReadArgs(target, value);
+  }
+}
+
+function checkReadArgs(model: string, args: unknown): void {
+  const current = asRecord(args);
+  checkSelection(model, current.include);
+  checkSelection(model, current.select);
+  checkWhere(model, current.where);
+  checkOrderBy(model, current.orderBy);
+}
+
+/** Escrita aninhada: catálogo global só pode ser vinculado; dados da oficina são percorridos. */
+function checkData(model: string, data: unknown): void {
+  for (const item of asList(data)) {
+    for (const [key, value] of Object.entries(asRecord(item))) {
+      const target = relationTarget(model, key);
+      if (!target) continue;
+      const operations = asRecord(value);
+      if (GLOBAL_READONLY_MODELS.has(target)) {
+        if (Object.keys(operations).some((operation) => operation !== "connect")) {
+          throw new TenantScopeViolationError(`${model}.${key}: catálogo global só pode ser vinculado (connect).`);
+        }
+        continue;
+      }
+      for (const [operation, payload] of Object.entries(operations)) {
+        for (const entry of asList(payload)) {
+          const nested = asRecord(entry);
+          if (operation === "create") checkData(target, nested);
+          else if (operation === "createMany" || operation === "updateMany") checkData(target, nested.data);
+          else if (operation === "connectOrCreate") checkData(target, nested.create);
+          else if (operation === "update") checkData(target, "data" in nested ? nested.data : nested);
+          else if (operation === "upsert") {
+            checkData(target, nested.create);
+            checkData(target, nested.update);
+          }
+        }
+      }
+    }
+  }
+}
+
+/** Valida as relações aninhadas de uma operação (leitura, filtros e escritas). */
+function assertSafeRelations(model: string, args: Args): void {
+  checkReadArgs(model, args);
+  checkData(model, args.data);
+  checkData(model, args.create);
+  checkData(model, args.update);
+}
+
 export function scopeToTenant(prisma: PrismaClient, tenantId: string) {
   if (!tenantId) throw new TenantScopeViolationError("tenantId obrigatório para o escopo da oficina.");
 
@@ -132,6 +271,7 @@ export function scopeToTenant(prisma: PrismaClient, tenantId: string) {
           if (FORBIDDEN_MODELS.has(model)) {
             throw new TenantScopeViolationError(`${model} não é acessível no escopo da oficina.`);
           }
+          assertSafeRelations(model, currentArgs);
           if (model === "Tenant") {
             return query(scopeTenantModelArgs(operation, currentArgs, tenantId) as typeof args);
           }
