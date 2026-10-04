@@ -24,7 +24,7 @@ Recurso / Ação
 
 - **Perfil (Role):** conjunto nomeado de permissões, atribuído a um usuário dentro de um tenant.
 - **Permissão:** autorização atômica para executar uma ação sobre um recurso, no formato `recurso.acao` (convenção já usada em `docs/modules/clientes.md` §11, ex.: `customers.read`, `customers.create`).
-- Se um usuário pode possuir um ou mais perfis simultaneamente não foi decidido nesta rodada — ver seção 9.
+- Um usuário pode possuir **um ou mais** perfis; as permissões efetivas são a união das permissões de todos os seus perfis (implementado: `UserRole` N:N por oficina).
 
 ---
 
@@ -41,7 +41,7 @@ mecânico
 financeiro
 ```
 
-Este documento **não define** quais permissões cada perfil recebe — essa é uma decisão de negócio pendente (ver seção 5 e 6).
+O sistema implementa esses perfis e mais o perfil **somente leitura** (`VIEWER`). As permissões de cada perfil estão na matriz aprovada (seção 5).
 
 ---
 
@@ -63,31 +63,70 @@ Módulos podem definir ações adicionais específicas de seu domínio (ex.: `vi
 
 ---
 
-# 5. Matriz Perfil × Permissão — Módulo Clientes
+# 5. Catálogo e Matriz Perfil × Permissão — APROVADOS
 
-Este é, hoje, o único módulo com um catálogo de permissões documentado (`docs/modules/clientes.md` §11). A matriz abaixo registra a **estrutura** esperada; o preenchimento (quais perfis recebem quais permissões) é uma decisão de negócio ainda não aprovada — todas as células estão marcadas como pendentes. Nenhum valor foi presumido, incluindo para os perfis "proprietário" e "administrador": atribuir acesso total por convenção não declarada violaria o princípio de menor privilégio já registrado em `docs/architecture/autenticacao.md` §2.
+> **Status: aprovado** (Prompt 04B, 2026-10-03 — opção A para financeiro/fiscal).
+> Fonte única no código: `packages/validation/src/rbac.ts` (`PERMISSIONS` e `DEFAULT_ROLE_PERMISSIONS`),
+> sincronizada para o banco por `apps/backend/src/modules/rbac/catalog-sync.ts`.
+> O catálogo oficial é o implementado nesse arquivo; este documento o descreve.
 
-|Permissão|Proprietário|Administrador|Gerente|Atendente|Mecânico|Financeiro|
-|-|-|-|-|-|-|-|
-|`customers.read`|A definir|A definir|A definir|A definir|A definir|A definir|
-|`customers.create`|A definir|A definir|A definir|A definir|A definir|A definir|
-|`customers.update`|A definir|A definir|A definir|A definir|A definir|A definir|
-|`customers.delete`|A definir|A definir|A definir|A definir|A definir|A definir|
-|`customers.export`|A definir|A definir|A definir|A definir|A definir|A definir|
-|`customers.view_history`|A definir|A definir|A definir|A definir|A definir|A definir|
-|`customers.manage_contacts`|A definir|A definir|A definir|A definir|A definir|A definir|
+## 5.1 Perfis
+
+`OWNER` (Proprietário), `ADMIN` (Administrador), `MANAGER` (Gerente), `ATTENDANT` (Atendente),
+`MECHANIC` (Mecânico), `FINANCIAL` (Financeiro), `VIEWER` (Somente leitura).
+
+## 5.2 Catálogo de permissões
+
+|Recurso|Permissões|
+|-|-|
+|`customers`|`read`, `create`, `update`, `delete`, `view_history`, `manage_contacts`|
+|`vehicles`|`read`, `create`, `update`, `delete`|
+|`services`|`read`, `create`, `update`, `deactivate`, `manage_prices`, `manage_fiscal`|
+|`products`|`read`, `create`, `update`, `deactivate`, `view_cost`, `manage_prices`, `manage_fiscal`|
+|`quotes`|`read`, `create`, `update`, `send`, `approve`, `reject`, `cancel`, `convert`, `edit_prices`, `apply_discount`, `view_cost`, `print`|
+|`work_orders`|`read`, `create`, `update`, `change_status`, `register_approval`, `complete`, `reopen`, `close`, `cancel`, `assign`, `edit_prices`, `apply_discount`, `view_cost`, `print`|
+|`financial`|`read`, `create`, `update`|
+|`fiscal`|`read`, `issue`|
+|`users`|`read`, `manage`|
+|`settings`|`manage`|
+|`audit`|`read`|
+
+Decisões registradas com o catálogo:
+
+- **`quotes.delete` removida** — orçamento não é excluído; usa-se `quotes.cancel` (`docs/modules/orcamentos.md` §14);
+- **`work_orders.delete` removida** — OS não é excluída; usa-se `work_orders.cancel`;
+- **`customers.export` fora do MVP** — não faz parte do catálogo;
+- **`work_orders.close_with_receivable` fora desta fase** — depende de contas a receber (Financeiro);
+- **`vehicles.delete` permanece** — a regra de exclusão de veículo com histórico será definida no módulo Veículos;
+- **`services.manage_fiscal` e `products.manage_fiscal` fazem parte do catálogo**, mesmo antes do módulo Fiscal;
+- **financeiro/fiscal (opção A):** mantidos `financial.read/create/update` e `fiscal.read/issue`. Não há
+  `financial.delete` nem `fiscal.create/update/delete` (documento fiscal emitido é cancelado, não excluído);
+  as chaves definitivas serão revistas quando os módulos Financeiro e Fiscal forem especificados.
+
+## 5.3 Matriz
+
+- **OWNER** e **ADMIN**: todas as permissões do catálogo.
+- **MANAGER**: todo `customers.*`, `vehicles.*`, `services.*`, `products.*` e `quotes.*`; `work_orders.*`
+  exceto `work_orders.close`; `financial.read/create/update`; `fiscal.read/issue`; `users.read`; `audit.read`.
+  Não possui `users.manage` nem `settings.manage`.
+- **ATTENDANT**: `customers.read/create/update/view_history/manage_contacts`; `vehicles.read/create/update`;
+  `services.read`; `products.read`; `quotes.read/create/update/send/approve/reject/convert/print`;
+  `work_orders.read/create/update/change_status/register_approval/assign/print`.
+  Sem exclusões, custos, preços, descontos, cancelamentos, financeiro, fiscal, usuários ou auditoria.
+- **MECHANIC**: `customers.read`; `vehicles.read`; `services.read`; `products.read`;
+  `work_orders.read/update/change_status/complete`.
+- **FINANCIAL**: `customers.read`; `services.read`; `products.read/view_cost`; `quotes.read`;
+  `work_orders.read/close/print`; `financial.read/create/update`; `fiscal.read/issue`. Sem acesso a veículos.
+- **VIEWER**: somente `customers.read`, `vehicles.read`, `services.read`, `products.read`, `quotes.read`,
+  `work_orders.read`, `financial.read`, `fiscal.read`. Sem `users.read` e sem `audit.read`.
 
 ---
 
-# 6. Módulos Pendentes
+# 6. Evolução do Catálogo
 
-Os módulos abaixo ainda não possuem catálogo de permissões documentado e, portanto, não têm matriz nesta rodada. A matriz de cada um deve ser adicionada à documentação do respectivo módulo (`docs/modules/*.md`) quando esse módulo for especificado com aprovação de negócio, e então referenciada aqui:
-
-```text
-Veículos, Orçamentos, Ordens de Serviço, Estoque, Produtos,
-Fornecedores, Compras, Financeiro, Pagamentos, CRM,
-WhatsApp, Fiscal, IA
-```
+Novas permissões entram primeiro na documentação do módulo (`docs/modules/*.md`) e nesta seção 5,
+mediante aprovação, e só então em `packages/validation/src/rbac.ts`. Permissão retirada do catálogo deixa de
+ser concedida a qualquer perfil na próxima sincronização (`catalog-sync.ts` remove os vínculos).
 
 ---
 
@@ -105,8 +144,10 @@ Toda concessão, alteração ou revogação de perfil/permissão de um usuário 
 
 ---
 
-# 9. Pendências Bloqueantes
+# 9. Pendências
 
-- **Cardinalidade Usuário↔Perfil** (1:1 ou 1:N) — nenhum documento do AutoForge permite concluir isso; não decidido por engenharia. Bloqueia o desenho da relação Usuário↔Perfil no schema.
-- **Preenchimento da matriz perfil×permissão** (todos os módulos, incluindo Clientes, ver seção 5) — decisão de negócio. Bloqueia a implementação de autorização (RBAC) em qualquer módulo.
-- Fluxo de administração de perfis/permissões pela própria oficina (self-service) vs. apenas suporte AutoForge — não definido; não bloqueia a estrutura inicial.
+- ~~Cardinalidade Usuário↔Perfil~~ — **resolvida**: N:N (seção 2).
+- ~~Preenchimento da matriz perfil×permissão~~ — **resolvida**: seção 5 (aprovada no Prompt 04B).
+- Fluxo de administração de perfis/permissões pela própria oficina (self-service) vs. apenas suporte — não
+  definido; não bloqueia.
+- Chaves definitivas de Financeiro e Fiscal — revisar quando esses módulos forem especificados (seção 5.2).
