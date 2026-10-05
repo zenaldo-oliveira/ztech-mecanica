@@ -1,7 +1,7 @@
 import { Bike, Car } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import type { VehicleType } from "@/lib/mock/vehicles";
+import type { VehicleType } from "@/lib/api/vehicles";
 
 interface VehicleTypeIconProps {
   type: VehicleType;

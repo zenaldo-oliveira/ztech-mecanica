@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { Car, Eye, MoreHorizontal, Pencil } from "lucide-react";
+import { Car, Eye, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -18,26 +19,27 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useCan } from "@/components/auth/session-provider";
 import { VehicleTypeIcon } from "@/components/vehicles/vehicle-type-icon";
-import type { Vehicle } from "@/lib/mock/vehicles";
+import { formatMileage, type Vehicle } from "@/lib/api/vehicles";
 
 interface VehiclesTableProps {
   vehicles: Vehicle[];
   onEdit: (vehicle: Vehicle) => void;
+  onDelete: (vehicle: Vehicle) => void;
 }
 
-function formatMileage(mileage?: number): string {
-  if (mileage === undefined) return "—";
-  return `${mileage.toLocaleString("pt-BR")} km`;
-}
+export function VehiclesTable({ vehicles, onEdit, onDelete }: VehiclesTableProps) {
+  // Somente para adaptar a interface: o backend sempre reaplica a autorização.
+  const canUpdate = useCan("vehicles.update");
+  const canDelete = useCan("vehicles.delete");
 
-export function VehiclesTable({ vehicles, onEdit }: VehiclesTableProps) {
   if (vehicles.length === 0) {
     return (
       <EmptyState
         icon={Car}
-        title="Nenhum veículo cadastrado"
-        description="Cadastre o primeiro veículo para começar a acompanhar o histórico da oficina."
+        title="Nenhum veículo encontrado"
+        description="Ajuste a pesquisa ou o filtro para encontrar o veículo que você procura."
       />
     );
   }
@@ -95,7 +97,7 @@ export function VehiclesTable({ vehicles, onEdit }: VehiclesTableProps) {
                 </Link>
               </TableCell>
               <TableCell className="hidden px-4 py-3 text-right text-xs text-muted-foreground/80 md:table-cell">
-                {formatMileage(vehicle.mileage)}
+                {formatMileage(vehicle.lastMileage)}
               </TableCell>
               <TableCell className="px-4 py-3 text-right">
                 <DropdownMenu>
@@ -105,8 +107,8 @@ export function VehiclesTable({ vehicles, onEdit }: VehiclesTableProps) {
                         <Button
                           variant="ghost"
                           size="icon-sm"
-                          className="text-muted-foreground opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100 hover:text-foreground"
-                          aria-label={`Ações para ${vehicle.brand} ${vehicle.model}`}
+                          className="text-muted-foreground opacity-0 transition-opacity duration-150 group-hover:opacity-100 [@media(hover:none)]:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100 hover:text-foreground"
+                          aria-label={`Ações para ${vehicle.brand} ${vehicle.model} ${vehicle.plate}`}
                         >
                           <MoreHorizontal className="size-4" aria-hidden="true" />
                         </Button>
@@ -121,10 +123,21 @@ export function VehiclesTable({ vehicles, onEdit }: VehiclesTableProps) {
                         Visualizar
                       </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => onEdit(vehicle)}>
-                      <Pencil />
-                      Editar
-                    </DropdownMenuItem>
+                    {canUpdate ? (
+                      <DropdownMenuItem onSelect={() => onEdit(vehicle)}>
+                        <Pencil />
+                        Editar
+                      </DropdownMenuItem>
+                    ) : null}
+                    {canDelete ? (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem variant="destructive" onSelect={() => onDelete(vehicle)}>
+                          <Trash2 />
+                          Excluir
+                        </DropdownMenuItem>
+                      </>
+                    ) : null}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </TableCell>

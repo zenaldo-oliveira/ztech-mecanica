@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Banknote,
@@ -9,27 +10,36 @@ import {
   FileText,
   History,
   Pencil,
+  RotateCw,
   SearchX,
+  Trash2,
   Wrench,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorState } from "@/components/ui/error-state";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useCan } from "@/components/auth/session-provider";
+import { VehicleDeleteDialog } from "@/components/vehicles/vehicle-delete-dialog";
 import { VehicleFormSheet } from "@/components/vehicles/vehicle-form-sheet";
 import { VehicleTypeIcon } from "@/components/vehicles/vehicle-type-icon";
-import { vehicles as initialVehicles, type Vehicle } from "@/lib/mock/vehicles";
+import { customerCode } from "@/lib/api/customers";
+import { errorMessage, isApiError } from "@/lib/api/errors";
+import { formatMileage, getVehicle, vehicleTypeLabels, type Vehicle } from "@/lib/api/vehicles";
 
 interface DetailFieldProps {
   label: string;
-  value?: string;
+  value?: string | number | null;
 }
 
 function DetailField({ label, value }: DetailFieldProps) {
+  const text = value === null || value === undefined ? "" : String(value);
   return (
     <div className="flex flex-col gap-0.5">
       <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="text-sm text-foreground">{value && value.trim() ? value : "—"}</span>
+      <span className="text-sm text-foreground">{text.trim() ? text : "—"}</span>
     </div>
   );
 }
@@ -43,44 +53,115 @@ const relationshipSections = [
   { label: "Manutenções", icon: Wrench },
 ];
 
-function formatMileage(mileage?: number): string | undefined {
-  if (mileage === undefined) return undefined;
-  return `${mileage.toLocaleString("pt-BR")} km`;
+type LoadState =
+  | { status: "not-found" }
+  | { status: "error"; message: string }
+  | { status: "ready"; vehicle: Vehicle };
+
+function BackToVehicles() {
+  return (
+    <Button variant="ghost" size="sm" className="w-fit" asChild>
+      <Link href="/vehicles">
+        <ArrowLeft />
+        Voltar para veículos
+      </Link>
+    </Button>
+  );
 }
 
 export function VehicleDetailView({ vehicleId }: { vehicleId: string }) {
-  const [vehicle, setVehicle] = useState<Vehicle | undefined>(() =>
-    initialVehicles.find((item) => item.id === vehicleId),
-  );
+  const router = useRouter();
+  // Somente para adaptar a interface: o backend sempre reaplica a autorização.
+  const canUpdate = useCan("vehicles.update");
+  const canDelete = useCan("vehicles.delete");
+  const [reloadToken, setReloadToken] = useState(0);
+  /** Resultado da última carga, com a chave (veículo + recarga) que o originou. */
+  const [loaded, setLoaded] = useState<{ key: string; state: LoadState } | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
 
-  if (!vehicle) {
+  const loadKey = `${vehicleId}:${reloadToken}`;
+  const state = loaded?.key === loadKey ? loaded.state : null;
+
+  useEffect(() => {
+    const controller = new AbortController();
+    getVehicle(vehicleId, controller.signal)
+      .then((vehicle) => setLoaded({ key: loadKey, state: { status: "ready", vehicle } }))
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        // 404: inexistente ou de outra oficina (indistinguíveis); 400: identificador inválido.
+        if (isApiError(error) && (error.status === 404 || error.status === 400)) {
+          setLoaded({ key: loadKey, state: { status: "not-found" } });
+          return;
+        }
+        setLoaded({ key: loadKey, state: { status: "error", message: errorMessage(error) } });
+      });
+    return () => controller.abort();
+  }, [vehicleId, loadKey]);
+
+  const reload = useCallback(() => setReloadToken((token) => token + 1), []);
+
+  if (state === null) {
+    return (
+      <div className="flex flex-1 flex-col gap-6" aria-busy="true">
+        <BackToVehicles />
+        <span role="status" className="sr-only">
+          Carregando veículo…
+        </span>
+        <div className="flex items-center gap-3" aria-hidden="true">
+          <Skeleton className="size-10" />
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-6 w-56 max-w-full" />
+            <Skeleton className="h-4 w-24" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2" aria-hidden="true">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <Skeleton key={index} className="h-40 w-full" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (state.status === "not-found") {
     return (
       <div className="flex flex-1 flex-col gap-6">
-        <Button variant="ghost" size="sm" className="w-fit" asChild>
-          <Link href="/vehicles">
-            <ArrowLeft />
-            Voltar para veículos
-          </Link>
-        </Button>
+        <BackToVehicles />
         <EmptyState
           icon={SearchX}
           title="Veículo não encontrado"
-          description={`Não existe nenhum veículo com o identificador "${vehicleId}".`}
+          description="O veículo não existe ou não pertence a esta oficina."
         />
       </div>
     );
   }
 
+  if (state.status === "error") {
+    return (
+      <div className="flex flex-1 flex-col gap-6">
+        <BackToVehicles />
+        <ErrorState
+          title="Não foi possível carregar o veículo"
+          description={state.message}
+          action={
+            <Button variant="outline" size="sm" onClick={reload}>
+              <RotateCw aria-hidden="true" />
+              Tentar novamente
+            </Button>
+          }
+        />
+      </div>
+    );
+  }
+
+  const { vehicle } = state;
+
   return (
     <div className="flex flex-1 flex-col gap-6">
       <div className="flex flex-col gap-4">
-        <Button variant="ghost" size="sm" className="w-fit" asChild>
-          <Link href="/vehicles">
-            <ArrowLeft />
-            Voltar para veículos
-          </Link>
-        </Button>
+        <BackToVehicles />
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
@@ -92,11 +173,24 @@ export function VehicleDetailView({ vehicleId }: { vehicleId: string }) {
               <p className="font-mono text-sm text-muted-foreground">{vehicle.plate}</p>
             </div>
           </div>
-          <Button size="sm" onClick={() => setIsFormOpen(true)}>
-            <Pencil />
-            Editar
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {canDelete ? (
+              <Button size="sm" variant="outline" onClick={() => setIsDeleteOpen(true)}>
+                <Trash2 />
+                Excluir
+              </Button>
+            ) : null}
+            {canUpdate ? (
+              <Button size="sm" onClick={() => setIsFormOpen(true)}>
+                <Pencil />
+                Editar
+              </Button>
+            ) : null}
+          </div>
         </div>
+        <p role="status" aria-live="polite" className={feedback ? "text-sm text-success" : "sr-only"}>
+          {feedback}
+        </p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -105,7 +199,7 @@ export function VehicleDetailView({ vehicleId }: { vehicleId: string }) {
             <CardTitle>Dados cadastrais</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-4">
-            <DetailField label="Tipo" value={vehicle.type === "CAR" ? "Carro" : "Moto"} />
+            <DetailField label="Tipo" value={vehicleTypeLabels[vehicle.type]} />
             <DetailField label="Marca" value={vehicle.brand} />
             <DetailField label="Modelo" value={vehicle.model} />
             <DetailField label="Versão" value={vehicle.version} />
@@ -122,7 +216,7 @@ export function VehicleDetailView({ vehicleId }: { vehicleId: string }) {
             <DetailField label="Placa" value={vehicle.plate} />
             <DetailField label="Chassi" value={vehicle.chassisNumber} />
             <DetailField label="RENAVAM" value={vehicle.renavam} />
-            <DetailField label="Quilometragem" value={formatMileage(vehicle.mileage)} />
+            <DetailField label="Quilometragem" value={vehicle.lastMileage === null ? null : formatMileage(vehicle.lastMileage)} />
           </CardContent>
         </Card>
 
@@ -130,13 +224,14 @@ export function VehicleDetailView({ vehicleId }: { vehicleId: string }) {
           <CardHeader>
             <CardTitle>Cliente</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex flex-col gap-0.5">
             <Link
               href={`/customers/${vehicle.customer.id}`}
               className="text-sm font-medium text-foreground hover:underline"
             >
               {vehicle.customer.name}
             </Link>
+            <span className="text-xs text-muted-foreground">{customerCode(vehicle.customer.number)}</span>
           </CardContent>
         </Card>
 
@@ -165,7 +260,15 @@ export function VehicleDetailView({ vehicleId }: { vehicleId: string }) {
         open={isFormOpen}
         onOpenChange={setIsFormOpen}
         vehicle={vehicle}
-        onSubmit={setVehicle}
+        onSaved={(saved) => {
+          setLoaded({ key: loadKey, state: { status: "ready", vehicle: saved } });
+          setFeedback("Alterações salvas.");
+        }}
+      />
+      <VehicleDeleteDialog
+        vehicle={isDeleteOpen ? vehicle : null}
+        onOpenChange={setIsDeleteOpen}
+        onDeleted={() => router.replace("/vehicles")}
       />
     </div>
   );
