@@ -5,6 +5,7 @@ import { passwordResetRoutes } from "../modules/auth/password-reset.routes.js";
 import { customersRoutes } from "../modules/customers/customers.routes.js";
 import { meRoutes } from "../modules/me/me.routes.js";
 import { usersRoutes } from "../modules/users/users.routes.js";
+import { vehiclesRoutes } from "../modules/vehicles/vehicles.routes.js";
 
 /** API versionada (ADR-001 decisão 9). Registrada com prefixo /api/v1. */
 export async function apiV1Routes(app: FastifyInstance) {
@@ -13,4 +14,5 @@ export async function apiV1Routes(app: FastifyInstance) {
   await app.register(meRoutes);
   await app.register(usersRoutes);
   await app.register(customersRoutes);
+  await app.register(vehiclesRoutes);
 }

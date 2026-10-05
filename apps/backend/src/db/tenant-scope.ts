@@ -36,6 +36,7 @@ const TENANT_OWNED_MODELS = new Set([
   "TenantSettings",
   "TenantSequence",
   "Customer",
+  "Vehicle",
 ]);
 /** Catálogos globais: leitura permitida, escrita apenas pela infraestrutura. */
 const GLOBAL_READONLY_MODELS = new Set(["Role", "Permission", "RolePermission"]);
@@ -57,10 +58,12 @@ export const MODEL_RELATIONS: Readonly<Record<string, Readonly<Record<string, st
     settings: "TenantSettings",
     sequences: "TenantSequence",
     customers: "Customer",
+    vehicles: "Vehicle",
   },
   TenantSettings: { tenant: "Tenant" },
   TenantSequence: { tenant: "Tenant" },
-  Customer: { tenant: "Tenant" },
+  Customer: { tenant: "Tenant", vehicles: "Vehicle" },
+  Vehicle: { tenant: "Tenant", customer: "Customer" },
   User: { tenant: "Tenant", roles: "UserRole", sessions: "Session", passwordResetTokens: "PasswordResetToken" },
   Session: { tenant: "Tenant", user: "User" },
   PasswordResetToken: { tenant: "Tenant", user: "User" },

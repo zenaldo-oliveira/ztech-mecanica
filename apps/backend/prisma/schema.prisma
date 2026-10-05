@@ -46,6 +46,7 @@ model Tenant {
   settings            TenantSettings?
   sequences           TenantSequence[]
   customers           Customer[]
+  vehicles            Vehicle[]
 
   @@index([status])
   @@map("tenants")
@@ -369,7 +370,8 @@ model Customer {
   createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt         DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  vehicles Vehicle[]
 
   /// Alvo das FKs compostas (tenant_id, customer_id) de veículos, orçamentos e OS.
   @@unique([tenantId, id])
@@ -378,4 +380,49 @@ model Customer {
   @@index([tenantId, status])
   @@index([tenantId, name])
   @@map("customers")
+}
+
+// ---------------------------------------------------------------------------
+// Veículos (docs/modules/veiculos.md)
+// ---------------------------------------------------------------------------
+
+enum VehicleType {
+  CAR
+  MOTORCYCLE
+
+  @@map("vehicle_type")
+}
+
+/// Veículo de um cliente da oficina. Sem status e sem número sequencial (veiculos.md §5, §8).
+model Vehicle {
+  id              String      @id @default(uuid(7)) @db.Uuid
+  tenantId        String      @map("tenant_id") @db.Uuid
+  /// Proprietário atual. FK composta (tenant_id, customer_id): nunca de outra oficina.
+  customerId      String      @map("customer_id") @db.Uuid
+  type            VehicleType
+  /// Marca, modelo e versão em texto livre nesta fase (veiculos.md §2).
+  brand           String      @db.VarChar(80)
+  model           String      @db.VarChar(80)
+  version         String?     @db.VarChar(80)
+  manufactureYear Int?        @map("manufacture_year")
+  modelYear       Int?        @map("model_year")
+  /// Maiúsculas, sem hífen: AAA9999 ou Mercosul AAA9A99 (CHECK). Única por oficina.
+  plate           String      @db.VarChar(7)
+  /// VIN: 17 caracteres, sem I/O/Q (CHECK).
+  chassisNumber   String?     @map("chassis_number") @db.Char(17)
+  /// 11 dígitos (CHECK).
+  renavam         String?     @db.Char(11)
+  /// Última quilometragem conhecida, preenchida manualmente (veiculos.md §6).
+  lastMileage     Int?        @map("last_mileage")
+  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  customer Customer @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  /// Alvo das FKs compostas (tenant_id, vehicle_id) de orçamentos e OS.
+  @@unique([tenantId, id])
+  @@unique([tenantId, plate])
+  @@index([tenantId, customerId])
+  @@map("vehicles")
 }
