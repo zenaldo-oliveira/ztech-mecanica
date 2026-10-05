@@ -17,7 +17,8 @@ import {
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { contactPreferenceOptions, personTypeOptions } from "@/lib/customer-options";
 import { customerStatusOptions } from "@/lib/customer-status";
-import { isDocumentLengthValid } from "@/lib/format-document";
+import { documentDigits, documentIssue } from "@ztech/validation";
+import { maskDocument } from "@/lib/format-document";
 import {
   createCustomer,
   updateCustomer,
@@ -75,7 +76,7 @@ function customerToFormState(customer: Customer): CustomerFormState {
     personType: customer.personType,
     name: customer.name,
     tradeName: customer.tradeName ?? "",
-    document: customer.document,
+    document: maskDocument(customer.document, customer.personType),
     status: customer.status,
     phone: customer.phone,
     whatsapp: customer.whatsapp ?? "",
@@ -102,7 +103,7 @@ function formStateToInput(form: CustomerFormState, contactPreference: ContactPre
     name: form.name,
     // Nome fantasia só existe para pessoa jurídica: ao mudar para física, é limpo.
     tradeName: form.personType === "BUSINESS" ? form.tradeName : null,
-    document: form.document,
+    document: documentDigits(form.document),
     phone: form.phone,
     whatsapp: form.whatsapp,
     email: form.email,
@@ -115,18 +116,24 @@ function formStateToInput(form: CustomerFormState, contactPreference: ContactPre
 
 type FormErrors = Record<string, string>;
 
-function validate(form: CustomerFormState): FormErrors {
+/**
+ * `originalDocument`: documento já gravado (edição). Ele só é revalidado se for alterado —
+ * clientes antigos com documento fora da regra continuam editáveis nos demais campos.
+ */
+function validate(form: CustomerFormState, originalDocument?: string): FormErrors {
   const errors: FormErrors = {};
+  const digits = documentDigits(form.document);
+  const documentChanged = originalDocument === undefined || digits !== originalDocument;
 
   if (!form.name.trim()) {
     errors.name = "Campo obrigatório.";
   }
 
-  if (!form.document.trim()) {
+  if (!digits) {
     errors.document = "Campo obrigatório.";
-  } else if (!isDocumentLengthValid(form.document, form.personType)) {
-    errors.document =
-      form.personType === "INDIVIDUAL" ? "CPF deve ter 11 dígitos." : "CNPJ deve ter 14 dígitos.";
+  } else if (documentChanged) {
+    const issue = documentIssue(form.personType, digits);
+    if (issue) errors.document = issue;
   }
 
   if (!form.phone.trim()) {
@@ -174,6 +181,8 @@ interface CustomerFormBodyProps {
 
 function CustomerFormBody({ customer, onCancel, onSaved, onSavingChange }: CustomerFormBodyProps) {
   const isEditing = Boolean(customer);
+  // Documento gravado que não passa na verificação atual: aviso, sem bloquear a edição.
+  const legacyDocumentIssue = customer ? documentIssue(customer.personType, customer.document) : null;
   const [form, setForm] = useState<CustomerFormState>(() =>
     customer ? customerToFormState(customer) : emptyForm,
   );
@@ -197,7 +206,7 @@ function CustomerFormBody({ customer, onCancel, onSaved, onSavingChange }: Custo
 
   async function handleSubmit() {
     if (isSaving) return;
-    const validationErrors = validate(form);
+    const validationErrors = validate(form, customer?.document);
     setErrors(validationErrors);
     setGeneralError(null);
     if (Object.keys(validationErrors).length > 0 || !form.contactPreference) return;
@@ -206,9 +215,15 @@ function CustomerFormBody({ customer, onCancel, onSaved, onSavingChange }: Custo
     setIsSaving(true);
     onSavingChange(true);
     try {
-      const saved = customer
-        ? await updateCustomer(customer.id, { ...input, status: form.status })
-        : await createCustomer(input);
+      let saved: Customer;
+      if (customer) {
+        // Documento inalterado não é reenviado: preserva o valor gravado e evita revalidá-lo.
+        const { document, ...rest } = input;
+        const update = document === customer.document ? rest : input;
+        saved = await updateCustomer(customer.id, { ...update, status: form.status });
+      } else {
+        saved = await createCustomer(input);
+      }
       onSaved(saved);
     } catch (error) {
       const { fields, general } = errorsFromApi(error);
@@ -239,7 +254,12 @@ function CustomerFormBody({ customer, onCancel, onSaved, onSavingChange }: Custo
             variant="outline"
             value={form.personType}
             onValueChange={(value) => {
-              if (value) setForm((previous) => ({ ...previous, personType: value as PersonType }));
+              if (value)
+                setForm((previous) => ({
+                  ...previous,
+                  personType: value as PersonType,
+                  document: maskDocument(previous.document, value as PersonType),
+                }));
             }}
             aria-label="Tipo de pessoa"
           >
@@ -284,10 +304,18 @@ function CustomerFormBody({ customer, onCancel, onSaved, onSavingChange }: Custo
             inputMode="numeric"
             placeholder={form.personType === "INDIVIDUAL" ? "000.000.000-00" : "00.000.000/0000-00"}
             value={form.document}
-            onChange={(event) => setForm((previous) => ({ ...previous, document: event.target.value }))}
+            onChange={(event) =>
+              setForm((previous) => ({ ...previous, document: maskDocument(event.target.value, previous.personType) }))
+            }
             {...fieldProps("document")}
           />
           <FieldError id={errorId("document")} message={errors.document} />
+          {legacyDocumentIssue && !errors.document && documentDigits(form.document) === customer?.document ? (
+            <p className="text-xs text-warning">
+              O documento cadastrado não passa na verificação atual. Corrija-o quando possível; os demais
+              dados podem ser salvos normalmente.
+            </p>
+          ) : null}
         </div>
 
         {isEditing ? (

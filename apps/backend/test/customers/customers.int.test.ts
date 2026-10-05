@@ -29,7 +29,7 @@ beforeEach(async () => {
 const validIndividual = {
   personType: "INDIVIDUAL",
   name: "  João da Silva  ",
-  document: "456.789.123-03",
+  document: "529.982.247-25",
   phone: "(11) 98765-4321",
   email: "Joao.Silva@Email.COM",
   address: { zipCode: "01310-100", street: "Av. Paulista", number: "1000", city: "São Paulo", state: "sp" },
@@ -67,7 +67,7 @@ describe("CRUD de clientes", () => {
       personType: "INDIVIDUAL",
       name: "João da Silva",
       tradeName: null,
-      document: "45678912303",
+      document: "52998224725",
       status: "ACTIVE",
       phone: "11987654321",
       email: "joao.silva@email.com",
@@ -248,7 +248,7 @@ describe("isolamento entre oficinas", () => {
 
     const other = await createCustomer(scenario.ownerA.cookie, { ...validIndividual, document: "12345678909" });
     const update = await request(scenario.ownerA.cookie, "PATCH", `/customers/${other.id}`, {
-      document: "45678912303",
+      document: "52998224725",
     });
     expect(update.statusCode).toBe(409);
     // A tentativa duplicada não consumiu número: o próximo cliente recebe 3.
@@ -270,7 +270,7 @@ describe("validação", () => {
   it("rejeita dados inválidos", async () => {
     const invalid: Record<string, unknown>[] = [
       { document: "123" },
-      { personType: "BUSINESS", document: "45678912303" },
+      { personType: "BUSINESS", document: "52998224725" },
       { tradeName: "Fantasia" },
       { email: "nao-e-email" },
       { phone: "1234" },
@@ -324,5 +324,79 @@ describe("validação", () => {
     await expect(
       prisma.customer.update({ where: { id: created.id }, data: { tenantId: scenario.tenantB.id } }),
     ).rejects.toThrow();
+  });
+});
+
+describe("CPF/CNPJ: dígitos verificadores", () => {
+  it("cadastro aceita CPF e CNPJ válidos, com e sem pontuação, gravando somente dígitos", async () => {
+    const individual = await createCustomer(scenario.ownerA.cookie, { ...validIndividual, document: "52998224725" });
+    const business = await createCustomer(scenario.ownerA.cookie, { ...validBusiness, document: "11222333000181" });
+
+    expect((await prisma.customer.findUniqueOrThrow({ where: { id: individual.id } })).document).toBe("52998224725");
+    expect((await prisma.customer.findUniqueOrThrow({ where: { id: business.id } })).document).toBe("11222333000181");
+  });
+
+  it("cadastro recusa dígitos verificadores incorretos e sequências repetidas (400), sem repetir o número", async () => {
+    const invalid: [object, string][] = [
+      [{ ...validIndividual, document: "529.982.247-24" }, "CPF inválido: confira os dígitos."],
+      [{ ...validIndividual, document: "111.111.111-11" }, "CPF inválido: confira os dígitos."],
+      [{ ...validIndividual, document: "000.000.000-00" }, "CPF inválido: confira os dígitos."],
+      [{ ...validBusiness, document: "11.222.333/0001-82" }, "CNPJ inválido: confira os dígitos."],
+      [{ ...validBusiness, document: "00.000.000/0000-00" }, "CNPJ inválido: confira os dígitos."],
+      [{ ...validIndividual, document: "529.982.247" }, "CPF deve ter 11 dígitos."],
+      [{ ...validIndividual, document: "" }, "CPF deve ter 11 dígitos."],
+    ];
+    for (const [payload, message] of invalid) {
+      const response = await request(scenario.ownerA.cookie, "POST", "/customers", payload);
+      expect(response.statusCode, JSON.stringify(payload)).toBe(400);
+      const details = response.json().error.details as { path: string; message: string }[];
+      expect(details).toContainEqual({ path: "document", message });
+      expect(response.body).not.toMatch(/52998224|11222333|11111111111|00000000000/);
+    }
+    expect(await prisma.customer.count()).toBe(0);
+  });
+
+  it("PATCH que envia documento inválido é recusado; o registro não muda", async () => {
+    const created = await createCustomer(scenario.ownerA.cookie);
+
+    const response = await request(scenario.ownerA.cookie, "PATCH", `/customers/${created.id}`, {
+      document: "529.982.247-24",
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect((await prisma.customer.findUniqueOrThrow({ where: { id: created.id } })).document).toBe("52998224725");
+  });
+
+  it("cliente antigo com CPF inválido continua editável sem alterar o documento (dado preservado)", async () => {
+    // Cadastro anterior à validação de dígitos: gravado direto no banco, só com o tamanho correto.
+    const legacy = await prisma.customer.create({
+      data: {
+        tenantId: scenario.tenantA.id,
+        number: 900,
+        personType: "INDIVIDUAL",
+        name: "Cliente Antigo",
+        document: "45678912303",
+        phone: "11987654321",
+        contactPreference: "PHONE",
+      },
+    });
+
+    const rename = await request(scenario.ownerA.cookie, "PATCH", `/customers/${legacy.id}`, { name: "Cliente Antigo 2" });
+    expect(rename.statusCode).toBe(200);
+    expect((await prisma.customer.findUniqueOrThrow({ where: { id: legacy.id } })).document).toBe("45678912303");
+
+    const resend = await request(scenario.ownerA.cookie, "PATCH", `/customers/${legacy.id}`, { document: "45678912303" });
+    expect(resend.statusCode).toBe(400);
+    const fix = await request(scenario.ownerA.cookie, "PATCH", `/customers/${legacy.id}`, { document: "123.456.789-09" });
+    expect(fix.statusCode).toBe(200);
+  });
+
+  it("documento não aparece na auditoria", async () => {
+    const created = await createCustomer(scenario.ownerA.cookie);
+    await request(scenario.ownerA.cookie, "PATCH", `/customers/${created.id}`, { document: "123.456.789-09" });
+
+    const logs = await prisma.auditLog.findMany({ where: { entityId: created.id } });
+    expect(logs.length).toBeGreaterThan(0);
+    expect(JSON.stringify(logs)).not.toMatch(/52998224725|12345678909/);
   });
 });

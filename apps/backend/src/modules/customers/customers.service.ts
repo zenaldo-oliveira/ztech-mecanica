@@ -168,11 +168,14 @@ export function createCustomersService({ db, tenantId, actorUserId, request }: C
     const before = await findRow(id);
     const { address, ...fields } = body;
 
-    const issues = personTypeIssues({
-      personType: fields.personType ?? before.personType,
-      document: fields.document ?? before.document,
-      tradeName: fields.tradeName === undefined ? before.tradeName : fields.tradeName,
-    });
+    const issues = personTypeIssues(
+      {
+        personType: fields.personType ?? before.personType,
+        document: fields.document ?? before.document,
+        tradeName: fields.tradeName === undefined ? before.tradeName : fields.tradeName,
+      },
+      { checkDigits: fields.document !== undefined },
+    );
     if (issues.length > 0) throw validationError(issues);
 
     let row: CustomerRow;

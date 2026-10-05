@@ -4,7 +4,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "../../src/app.js";
 import type { PrismaClient } from "../../src/db/client.js";
 import { createTestPrisma, resetDatabase } from "../helpers/db.js";
-import { createTwoTenantsScenario, createUserWithSession, testEnv } from "../helpers/fixtures.js";
+import { createTwoTenantsScenario, createUserWithSession, testEnv, validCpf } from "../helpers/fixtures.js";
 
 let prisma: PrismaClient;
 let app: FastifyInstance;
@@ -34,7 +34,7 @@ async function createCustomer(cookie: string, name: string) {
   const response = await request(cookie, "POST", "/customers", {
     personType: "INDIVIDUAL",
     name,
-    document: String(10_000_000_000 + documentSequence),
+    document: validCpf(documentSequence),
     phone: "11987654321",
     contactPreference: "PHONE",
   });

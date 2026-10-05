@@ -1,3 +1,4 @@
+import { documentIssue } from "@ztech/validation";
 import { z } from "zod";
 
 // Contrato da API de clientes (docs/modules/clientes.md). Schemas estritos: campo não
@@ -64,7 +65,15 @@ export interface PersonTypeRules {
   tradeName?: string | null;
 }
 
-export function personTypeIssues(customer: PersonTypeRules): { path: string; message: string }[] {
+/**
+ * `checkDigits`: valida também os dígitos verificadores de CPF/CNPJ (clientes.md §5). Vale
+ * sempre que o documento é ENVIADO (cadastro ou alteração do documento). Na atualização sem
+ * documento, só o tamanho é conferido: dados já gravados não são bloqueados nem alterados.
+ */
+export function personTypeIssues(
+  customer: PersonTypeRules,
+  { checkDigits }: { checkDigits: boolean } = { checkDigits: true },
+): { path: string; message: string }[] {
   const issues: { path: string; message: string }[] = [];
   const expectedLength = customer.personType === "INDIVIDUAL" ? 11 : 14;
   if (customer.document.length !== expectedLength) {
@@ -72,6 +81,9 @@ export function personTypeIssues(customer: PersonTypeRules): { path: string; mes
       path: "document",
       message: customer.personType === "INDIVIDUAL" ? "CPF deve ter 11 dígitos." : "CNPJ deve ter 14 dígitos.",
     });
+  } else if (checkDigits) {
+    const issue = documentIssue(customer.personType, customer.document);
+    if (issue) issues.push({ path: "document", message: issue });
   }
   if (customer.personType === "INDIVIDUAL" && customer.tradeName) {
     issues.push({ path: "tradeName", message: "Nome fantasia só se aplica a pessoa jurídica." });

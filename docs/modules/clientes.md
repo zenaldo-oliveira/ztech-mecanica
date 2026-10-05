@@ -93,7 +93,13 @@ Regra de consistência:
 
 > O documento cadastrado deve ser compatível com o tipo de pessoa. Um cliente `INDIVIDUAL` não pode ser cadastrado com CNPJ, e um cliente `BUSINESS` não pode ser cadastrado com CPF.
 
-Esta documentação não define regras de validação fiscal além da compatibilidade acima (por exemplo, verificação de dígito verificador junto a órgãos externos) — isso, se necessário, deverá ser objeto de uma decisão arquitetural própria antes de ser implementado.
+**Decisão aprovada — dígitos verificadores:** CPF e CNPJ são validados pelos dígitos verificadores (módulo 11), recusando sequências repetidas (ex.: `000.000.000-00`). A entrada aceita pontuação e é gravada somente com dígitos. O validador é único para frontend e backend (`packages/validation/src/document.ts`).
+
+- a validação vale sempre que o documento é **enviado** (cadastro ou alteração do documento);
+- clientes gravados antes da regra **não são alterados nem bloqueados**: a edição de outros campos continua permitida, e o documento só é revalidado quando for alterado;
+- mensagens de erro e auditoria nunca repetem o número do documento.
+
+Não há consulta a órgãos externos (situação cadastral na Receita); isso, se necessário, deverá ser objeto de uma decisão própria. O CNPJ alfanumérico não é aceito nesta versão (o formato atual é somente numérico).
 
 ---
 

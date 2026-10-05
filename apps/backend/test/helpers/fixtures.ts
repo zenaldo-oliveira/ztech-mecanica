@@ -74,6 +74,18 @@ export async function createUserWithPassword(
   return user;
 }
 
+/** CPF válido (dígitos verificadores corretos) gerado a partir de um número; somente dígitos. */
+export function validCpf(seed: number): string {
+  const base = String(100_000_000 + (seed % 800_000_000)).padStart(9, "0");
+  const digit = (digits: string, startWeight: number) => {
+    const sum = [...digits].reduce((total, char, index) => total + Number(char) * (startWeight - index), 0);
+    const remainder = sum % 11;
+    return remainder < 2 ? 0 : 11 - remainder;
+  };
+  const first = digit(base, 10);
+  return `${base}${first}${digit(`${base}${first}`, 11)}`;
+}
+
 /** Extrai o cookie de sessão de uma resposta do app.inject. */
 export function sessionCookieFrom(response: { cookies: { name: string; value: string }[] }): string | undefined {
   const cookie = response.cookies.find((item) => item.name === SESSION_COOKIE_NAME);
