@@ -1,4 +1,4 @@
-import type { ContactPreference, PersonType } from "@/lib/mock/customers";
+import type { ContactPreference, PersonType } from "@/lib/api/customers";
 
 export const personTypeLabels: Record<PersonType, string> = {
   INDIVIDUAL: "Pessoa Física",

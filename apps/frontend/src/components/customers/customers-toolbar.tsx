@@ -13,7 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { customerStatusConfig, customerStatusOptions } from "@/lib/customer-status";
 import { personTypeLabels, personTypeOptions } from "@/lib/customer-options";
-import type { CustomerStatus, PersonType } from "@/lib/mock/customers";
+import type { CustomerStatus, PersonType } from "@/lib/api/customers";
 
 export type CustomerStatusFilter = CustomerStatus | "ALL";
 export type PersonTypeFilter = PersonType | "ALL";

@@ -1,4 +1,4 @@
-import type { CustomerStatus } from "@/lib/mock/customers";
+import type { CustomerStatus } from "@/lib/api/customers";
 
 interface CustomerStatusConfig {
   label: string;

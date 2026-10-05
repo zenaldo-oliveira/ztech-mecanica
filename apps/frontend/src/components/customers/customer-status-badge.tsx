@@ -1,5 +1,5 @@
 import { customerStatusConfig } from "@/lib/customer-status";
-import type { CustomerStatus } from "@/lib/mock/customers";
+import type { CustomerStatus } from "@/lib/api/customers";
 
 export function CustomerStatusBadge({ status }: { status: CustomerStatus }) {
   const config = customerStatusConfig[status];

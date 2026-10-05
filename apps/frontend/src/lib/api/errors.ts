@@ -46,3 +46,16 @@ export function errorMessage(error: unknown): string {
   }
   return "Ocorreu um erro inesperado. Tente novamente.";
 }
+
+/** Erros de campo devolvidos pela API em 400 (details: [{ path, message }]). */
+export function fieldErrorsFrom(details: unknown): Record<string, string> {
+  if (!Array.isArray(details)) return {};
+  const errors: Record<string, string> = {};
+  for (const item of details) {
+    if (item && typeof item === "object" && "path" in item && "message" in item) {
+      const { path, message } = item as { path: unknown; message: unknown };
+      if (typeof path === "string" && typeof message === "string" && !(path in errors)) errors[path] = message;
+    }
+  }
+  return errors;
+}

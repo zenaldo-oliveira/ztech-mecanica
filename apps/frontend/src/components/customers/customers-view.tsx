@@ -1,57 +1,104 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Plus } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Plus, RotateCw, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorState } from "@/components/ui/error-state";
 import { PageHeader } from "@/components/layout/page-header";
+import { useCan } from "@/components/auth/session-provider";
+import { CustomerDeactivateDialog } from "@/components/customers/customer-deactivate-dialog";
 import { CustomerFormSheet } from "@/components/customers/customer-form-sheet";
 import { CustomersPagination } from "@/components/customers/customers-pagination";
+import { CustomersSkeleton } from "@/components/customers/customers-skeleton";
 import { CustomersTable } from "@/components/customers/customers-table";
 import {
   CustomersToolbar,
   type CustomerStatusFilter,
   type PersonTypeFilter,
 } from "@/components/customers/customers-toolbar";
-import { customers as initialCustomers, type Customer } from "@/lib/mock/customers";
-import { onlyDigits } from "@/lib/format-document";
+import { listCustomers, type Customer } from "@/lib/api/customers";
+import { errorMessage } from "@/lib/api/errors";
 
-const PAGE_SIZE = 8;
+const PAGE_SIZE = 20;
+/** Espera após a digitação antes de consultar a API (evita uma requisição por tecla). */
+const SEARCH_DEBOUNCE_MS = 300;
+
+interface CustomersPage {
+  customers: Customer[];
+  total: number;
+}
 
 export function CustomersView() {
-  const [allCustomers, setAllCustomers] = useState<Customer[]>(initialCustomers);
+  const canCreate = useCan("customers.create");
 
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<CustomerStatusFilter>("ALL");
   const [personTypeFilter, setPersonTypeFilter] = useState<PersonTypeFilter>("ALL");
   const [page, setPage] = useState(1);
 
+  const [reloadToken, setReloadToken] = useState(0);
+  /** Última resposta da API, com a chave da consulta que a originou. */
+  const [response, setResponse] = useState<{ key: string; data?: CustomersPage; error?: string } | null>(null);
+  /** Último resultado bem-sucedido: continua visível enquanto a próxima página carrega. */
+  const [result, setResult] = useState<CustomersPage | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
+
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | undefined>(undefined);
+  const [deactivating, setDeactivating] = useState<Customer | null>(null);
 
-  const filteredCustomers = useMemo(() => {
-    const searchDigits = onlyDigits(search);
-    const searchLower = search.trim().toLowerCase();
+  useEffect(() => {
+    const timeout = setTimeout(() => setDebouncedSearch(search), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timeout);
+  }, [search]);
 
-    return allCustomers.filter((customer) => {
-      const matchesStatus = statusFilter === "ALL" || customer.status === statusFilter;
-      const matchesPersonType = personTypeFilter === "ALL" || customer.personType === personTypeFilter;
+  const queryKey = JSON.stringify([page, debouncedSearch, statusFilter, personTypeFilter, reloadToken]);
+  const isLoading = response?.key !== queryKey;
+  const loadError = response?.key === queryKey ? (response.error ?? null) : null;
 
-      const matchesSearch =
-        searchLower === "" ||
-        customer.name.toLowerCase().includes(searchLower) ||
-        (searchDigits !== "" && customer.document.includes(searchDigits));
+  useEffect(() => {
+    const controller = new AbortController();
 
-      return matchesStatus && matchesPersonType && matchesSearch;
-    });
-  }, [allCustomers, search, statusFilter, personTypeFilter]);
+    listCustomers(
+      {
+        page,
+        pageSize: PAGE_SIZE,
+        search: debouncedSearch,
+        status: statusFilter === "ALL" ? undefined : statusFilter,
+        personType: personTypeFilter === "ALL" ? undefined : personTypeFilter,
+      },
+      controller.signal,
+    )
+      .then((list) => {
+        const totalPages = Math.max(1, Math.ceil(list.meta.total / PAGE_SIZE));
+        // A página pode ter ficado vazia (ex.: após inativar o último item com filtro ativo).
+        if (list.data.length === 0 && page > totalPages) {
+          setPage(totalPages);
+          return;
+        }
+        const data = { customers: list.data, total: list.meta.total };
+        setResult(data);
+        setResponse({ key: queryKey, data });
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        setResponse({ key: queryKey, error: errorMessage(error) });
+      });
 
-  const totalPages = Math.max(1, Math.ceil(filteredCustomers.length / PAGE_SIZE));
-  const currentPage = Math.min(page, totalPages);
-  const paginatedCustomers = filteredCustomers.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE,
-  );
+    return () => controller.abort();
+  }, [queryKey, page, debouncedSearch, statusFilter, personTypeFilter]);
+
+  const reload = useCallback(() => setReloadToken((token) => token + 1), []);
+
+  function changeFilter<T>(setter: (value: T) => void) {
+    return (value: T) => {
+      setter(value);
+      setPage(1);
+    };
+  }
 
   function handleNewCustomer() {
     setEditingCustomer(undefined);
@@ -63,14 +110,68 @@ export function CustomersView() {
     setIsFormOpen(true);
   }
 
-  function handleSubmitCustomer(customer: Customer) {
-    setAllCustomers((previous) => {
-      const exists = previous.some((item) => item.id === customer.id);
-      if (exists) {
-        return previous.map((item) => (item.id === customer.id ? customer : item));
-      }
-      return [...previous, customer];
-    });
+  function handleSaved(saved: Customer) {
+    setFeedback(editingCustomer ? `Cliente ${saved.name} atualizado.` : `Cliente ${saved.name} cadastrado.`);
+    reload();
+  }
+
+  function handleDeactivated() {
+    if (deactivating) setFeedback(`Cliente ${deactivating.name} inativado.`);
+    reload();
+  }
+
+  const hasFilters = debouncedSearch.trim() !== "" || statusFilter !== "ALL" || personTypeFilter !== "ALL";
+  const totalPages = Math.max(1, Math.ceil((result?.total ?? 0) / PAGE_SIZE));
+
+  function renderContent() {
+    if (loadError) {
+      return (
+        <ErrorState
+          title="Não foi possível carregar os clientes"
+          description={loadError}
+          action={
+            <Button variant="outline" size="sm" onClick={reload}>
+              <RotateCw aria-hidden="true" />
+              Tentar novamente
+            </Button>
+          }
+        />
+      );
+    }
+    if (!result) return <CustomersSkeleton />;
+    if (result.total === 0 && !hasFilters) {
+      return (
+        <EmptyState
+          icon={Users}
+          title="Nenhum cliente cadastrado"
+          description="Cadastre o primeiro cliente da oficina para começar."
+          action={
+            canCreate ? (
+              <Button size="sm" onClick={handleNewCustomer}>
+                <Plus />
+                Novo cliente
+              </Button>
+            ) : undefined
+          }
+        />
+      );
+    }
+    return (
+      <div className="flex flex-col" aria-busy={isLoading}>
+        <CustomersTable
+          customers={result.customers}
+          onEdit={handleEditCustomer}
+          onDeactivate={setDeactivating}
+        />
+        <CustomersPagination
+          page={page}
+          totalPages={totalPages}
+          totalItems={result.total}
+          pageSize={PAGE_SIZE}
+          onPageChange={setPage}
+        />
+      </div>
+    );
   }
 
   return (
@@ -79,41 +180,43 @@ export function CustomersView() {
         title="Clientes"
         description="Cadastro, consulta e histórico dos clientes da oficina."
         actions={
-          <Button size="sm" onClick={handleNewCustomer}>
-            <Plus />
-            Novo cliente
-          </Button>
+          canCreate ? (
+            <Button size="sm" onClick={handleNewCustomer}>
+              <Plus />
+              Novo cliente
+            </Button>
+          ) : undefined
         }
       />
+
+      <p role="status" aria-live="polite" className={feedback ? "text-sm text-success" : "sr-only"}>
+        {feedback}
+      </p>
 
       <div className="flex flex-1 flex-col gap-5">
         <CustomersToolbar
           search={search}
-          onSearchChange={setSearch}
+          onSearchChange={changeFilter(setSearch)}
           statusFilter={statusFilter}
-          onStatusFilterChange={setStatusFilter}
+          onStatusFilterChange={changeFilter(setStatusFilter)}
           personTypeFilter={personTypeFilter}
-          onPersonTypeFilterChange={setPersonTypeFilter}
+          onPersonTypeFilterChange={changeFilter(setPersonTypeFilter)}
         />
-
-        <div className="flex flex-col">
-          <CustomersTable customers={paginatedCustomers} onEdit={handleEditCustomer} />
-
-          <CustomersPagination
-            page={currentPage}
-            totalPages={totalPages}
-            totalItems={filteredCustomers.length}
-            pageSize={PAGE_SIZE}
-            onPageChange={setPage}
-          />
-        </div>
+        {renderContent()}
       </div>
 
       <CustomerFormSheet
         open={isFormOpen}
         onOpenChange={setIsFormOpen}
         customer={editingCustomer}
-        onSubmit={handleSubmitCustomer}
+        onSaved={handleSaved}
+      />
+      <CustomerDeactivateDialog
+        customer={deactivating}
+        onOpenChange={(open) => {
+          if (!open) setDeactivating(null);
+        }}
+        onDeactivated={handleDeactivated}
       />
     </div>
   );

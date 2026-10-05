@@ -1,4 +1,4 @@
-import type { PersonType } from "@/lib/mock/customers";
+import type { PersonType } from "@/lib/api/customers";
 
 export function onlyDigits(value: string): string {
   return value.replace(/\D/g, "");

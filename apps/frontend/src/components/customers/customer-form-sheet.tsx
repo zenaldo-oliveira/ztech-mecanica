@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,14 +17,20 @@ import {
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { contactPreferenceOptions, personTypeOptions } from "@/lib/customer-options";
 import { customerStatusOptions } from "@/lib/customer-status";
-import { isDocumentLengthValid, onlyDigits } from "@/lib/format-document";
-import type {
-  Customer,
-  CustomerAddress,
-  ContactPreference,
-  CustomerStatus,
-  PersonType,
-} from "@/lib/mock/customers";
+import { isDocumentLengthValid } from "@/lib/format-document";
+import {
+  createCustomer,
+  updateCustomer,
+  type ContactPreference,
+  type Customer,
+  type CustomerAddress,
+  type CustomerInput,
+  type CustomerStatus,
+  type PersonType,
+} from "@/lib/api/customers";
+import { errorMessage, fieldErrorsFrom, isApiError } from "@/lib/api/errors";
+
+type AddressForm = Record<keyof CustomerAddress, string>;
 
 interface CustomerFormState {
   personType: PersonType;
@@ -37,7 +44,7 @@ interface CustomerFormState {
   secondaryPhone: string;
   secondaryEmail: string;
   contactPreference: ContactPreference | "";
-  address: Required<CustomerAddress>;
+  address: AddressForm;
 }
 
 const emptyForm: CustomerFormState = {
@@ -77,48 +84,36 @@ function customerToFormState(customer: Customer): CustomerFormState {
     secondaryEmail: customer.secondaryEmail ?? "",
     contactPreference: customer.contactPreference,
     address: {
-      zipCode: customer.address?.zipCode ?? "",
-      street: customer.address?.street ?? "",
-      number: customer.address?.number ?? "",
-      complement: customer.address?.complement ?? "",
-      neighborhood: customer.address?.neighborhood ?? "",
-      city: customer.address?.city ?? "",
-      state: customer.address?.state ?? "",
+      zipCode: customer.address.zipCode ?? "",
+      street: customer.address.street ?? "",
+      number: customer.address.number ?? "",
+      complement: customer.address.complement ?? "",
+      neighborhood: customer.address.neighborhood ?? "",
+      city: customer.address.city ?? "",
+      state: customer.address.state ?? "",
     },
   };
 }
 
-function formStateToCustomer(id: string, form: CustomerFormState): Customer {
-  const hasAddress = Object.values(form.address).some((value) => value.trim() !== "");
-
+/** Corpo enviado à API. Campos vazios vão como "" e o backend os grava como null (limpeza). */
+function formStateToInput(form: CustomerFormState, contactPreference: ContactPreference): CustomerInput {
   return {
-    id,
     personType: form.personType,
-    name: form.name.trim(),
-    tradeName: form.personType === "BUSINESS" && form.tradeName.trim() ? form.tradeName.trim() : undefined,
-    document: onlyDigits(form.document),
-    status: form.status,
-    phone: onlyDigits(form.phone),
-    whatsapp: form.whatsapp.trim() ? onlyDigits(form.whatsapp) : undefined,
-    email: form.email.trim() || undefined,
-    secondaryPhone: form.secondaryPhone.trim() ? onlyDigits(form.secondaryPhone) : undefined,
-    secondaryEmail: form.secondaryEmail.trim() || undefined,
-    contactPreference: form.contactPreference || "NONE",
-    address: hasAddress
-      ? {
-          zipCode: form.address.zipCode.trim() || undefined,
-          street: form.address.street.trim() || undefined,
-          number: form.address.number.trim() || undefined,
-          complement: form.address.complement.trim() || undefined,
-          neighborhood: form.address.neighborhood.trim() || undefined,
-          city: form.address.city.trim() || undefined,
-          state: form.address.state.trim() || undefined,
-        }
-      : undefined,
+    name: form.name,
+    // Nome fantasia só existe para pessoa jurídica: ao mudar para física, é limpo.
+    tradeName: form.personType === "BUSINESS" ? form.tradeName : null,
+    document: form.document,
+    phone: form.phone,
+    whatsapp: form.whatsapp,
+    email: form.email,
+    secondaryPhone: form.secondaryPhone,
+    secondaryEmail: form.secondaryEmail,
+    address: { ...form.address },
+    contactPreference,
   };
 }
 
-type FormErrors = Partial<Record<"name" | "document" | "phone" | "contactPreference", string>>;
+type FormErrors = Record<string, string>;
 
 function validate(form: CustomerFormState): FormErrors {
   const errors: FormErrors = {};
@@ -145,33 +140,84 @@ function validate(form: CustomerFormState): FormErrors {
   return errors;
 }
 
+/** Converte um erro da API em erros de campo e/ou uma mensagem geral do formulário. */
+function errorsFromApi(error: unknown): { fields: FormErrors; general: string | null } {
+  if (isApiError(error)) {
+    if (error.status === 400) {
+      const fields = fieldErrorsFrom(error.details);
+      return Object.keys(fields).length > 0
+        ? { fields, general: "Revise os campos destacados." }
+        : { fields: {}, general: error.message };
+    }
+    if (error.status === 409) return { fields: { document: error.message }, general: error.message };
+    if (error.status === 401) return { fields: {}, general: "Sua sessão expirou. Entre novamente para continuar." };
+    if (error.status === 403) return { fields: {}, general: "Você não tem permissão para salvar este cliente." };
+    if (error.status === 404) return { fields: {}, general: "Este cliente não foi encontrado. Atualize a página." };
+  }
+  return { fields: {}, general: errorMessage(error) };
+}
+
+function FieldError({ id, message }: { id: string; message?: string }) {
+  return message ? (
+    <p id={id} className="text-xs text-destructive">
+      {message}
+    </p>
+  ) : null;
+}
+
 interface CustomerFormBodyProps {
   customer?: Customer;
   onCancel: () => void;
-  onSubmit: (customer: Customer) => void;
+  onSaved: (customer: Customer) => void;
+  onSavingChange: (isSaving: boolean) => void;
 }
 
-function CustomerFormBody({ customer, onCancel, onSubmit }: CustomerFormBodyProps) {
+function CustomerFormBody({ customer, onCancel, onSaved, onSavingChange }: CustomerFormBodyProps) {
   const isEditing = Boolean(customer);
   const [form, setForm] = useState<CustomerFormState>(() =>
     customer ? customerToFormState(customer) : emptyForm,
   );
   const [errors, setErrors] = useState<FormErrors>({});
+  const [generalError, setGeneralError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   function updateAddress<K extends keyof CustomerAddress>(field: K, value: string) {
     setForm((previous) => ({ ...previous, address: { ...previous.address, [field]: value } }));
   }
 
-  function handleSubmit() {
+  /** Props de acessibilidade do campo: inválido + descrição apontando para a mensagem. */
+  function fieldProps(field: string) {
+    const message = errors[field];
+    return {
+      "aria-invalid": Boolean(message),
+      "aria-describedby": message ? `customer-error-${field.replace(".", "-")}` : undefined,
+    };
+  }
+  const errorId = (field: string) => `customer-error-${field.replace(".", "-")}`;
+
+  async function handleSubmit() {
+    if (isSaving) return;
     const validationErrors = validate(form);
     setErrors(validationErrors);
+    setGeneralError(null);
+    if (Object.keys(validationErrors).length > 0 || !form.contactPreference) return;
 
-    if (Object.keys(validationErrors).length > 0) {
-      return;
+    const input = formStateToInput(form, form.contactPreference);
+    setIsSaving(true);
+    onSavingChange(true);
+    try {
+      const saved = customer
+        ? await updateCustomer(customer.id, { ...input, status: form.status })
+        : await createCustomer(input);
+      onSaved(saved);
+    } catch (error) {
+      const { fields, general } = errorsFromApi(error);
+      setErrors(fields);
+      setGeneralError(general);
+    } finally {
+      setIsSaving(false);
+      onSavingChange(false);
     }
-
-    const id = customer?.id ?? `CLI-${String(Date.now()).slice(-6)}`;
-    onSubmit(formStateToCustomer(id, form));
   }
 
   return (
@@ -185,7 +231,7 @@ function CustomerFormBody({ customer, onCancel, onSubmit }: CustomerFormBodyProp
         </SheetDescription>
       </SheetHeader>
 
-      <div className="flex flex-col gap-6 px-4 pb-4">
+      <fieldset disabled={isSaving} className="flex min-w-0 flex-col gap-6 px-4 pb-4">
         <div className="flex flex-col gap-2">
           <Label>Tipo de pessoa</Label>
           <ToggleGroup
@@ -213,9 +259,9 @@ function CustomerFormBody({ customer, onCancel, onSubmit }: CustomerFormBodyProp
             id="customer-name"
             value={form.name}
             onChange={(event) => setForm((previous) => ({ ...previous, name: event.target.value }))}
-            aria-invalid={Boolean(errors.name)}
+            {...fieldProps("name")}
           />
-          {errors.name ? <p className="text-xs text-destructive">{errors.name}</p> : null}
+          <FieldError id={errorId("name")} message={errors.name} />
         </div>
 
         {form.personType === "BUSINESS" ? (
@@ -225,7 +271,9 @@ function CustomerFormBody({ customer, onCancel, onSubmit }: CustomerFormBodyProp
               id="customer-trade-name"
               value={form.tradeName}
               onChange={(event) => setForm((previous) => ({ ...previous, tradeName: event.target.value }))}
+              {...fieldProps("tradeName")}
             />
+            <FieldError id={errorId("tradeName")} message={errors.tradeName} />
           </div>
         ) : null}
 
@@ -237,9 +285,9 @@ function CustomerFormBody({ customer, onCancel, onSubmit }: CustomerFormBodyProp
             placeholder={form.personType === "INDIVIDUAL" ? "000.000.000-00" : "00.000.000/0000-00"}
             value={form.document}
             onChange={(event) => setForm((previous) => ({ ...previous, document: event.target.value }))}
-            aria-invalid={Boolean(errors.document)}
+            {...fieldProps("document")}
           />
-          {errors.document ? <p className="text-xs text-destructive">{errors.document}</p> : null}
+          <FieldError id={errorId("document")} message={errors.document} />
         </div>
 
         {isEditing ? (
@@ -275,9 +323,9 @@ function CustomerFormBody({ customer, onCancel, onSubmit }: CustomerFormBodyProp
               inputMode="tel"
               value={form.phone}
               onChange={(event) => setForm((previous) => ({ ...previous, phone: event.target.value }))}
-              aria-invalid={Boolean(errors.phone)}
+              {...fieldProps("phone")}
             />
-            {errors.phone ? <p className="text-xs text-destructive">{errors.phone}</p> : null}
+            <FieldError id={errorId("phone")} message={errors.phone} />
           </div>
 
           <div className="flex flex-col gap-2">
@@ -287,7 +335,9 @@ function CustomerFormBody({ customer, onCancel, onSubmit }: CustomerFormBodyProp
               inputMode="tel"
               value={form.whatsapp}
               onChange={(event) => setForm((previous) => ({ ...previous, whatsapp: event.target.value }))}
+              {...fieldProps("whatsapp")}
             />
+            <FieldError id={errorId("whatsapp")} message={errors.whatsapp} />
           </div>
 
           <div className="flex flex-col gap-2">
@@ -297,7 +347,9 @@ function CustomerFormBody({ customer, onCancel, onSubmit }: CustomerFormBodyProp
               type="email"
               value={form.email}
               onChange={(event) => setForm((previous) => ({ ...previous, email: event.target.value }))}
+              {...fieldProps("email")}
             />
+            <FieldError id={errorId("email")} message={errors.email} />
           </div>
         </div>
 
@@ -315,7 +367,9 @@ function CustomerFormBody({ customer, onCancel, onSubmit }: CustomerFormBodyProp
               onChange={(event) =>
                 setForm((previous) => ({ ...previous, secondaryPhone: event.target.value }))
               }
+              {...fieldProps("secondaryPhone")}
             />
+            <FieldError id={errorId("secondaryPhone")} message={errors.secondaryPhone} />
           </div>
 
           <div className="flex flex-col gap-2">
@@ -327,7 +381,9 @@ function CustomerFormBody({ customer, onCancel, onSubmit }: CustomerFormBodyProp
               onChange={(event) =>
                 setForm((previous) => ({ ...previous, secondaryEmail: event.target.value }))
               }
+              {...fieldProps("secondaryEmail")}
             />
+            <FieldError id={errorId("secondaryEmail")} message={errors.secondaryEmail} />
           </div>
         </div>
 
@@ -339,9 +395,12 @@ function CustomerFormBody({ customer, onCancel, onSubmit }: CustomerFormBodyProp
               <Label htmlFor="customer-zip">CEP</Label>
               <Input
                 id="customer-zip"
+                inputMode="numeric"
                 value={form.address.zipCode}
                 onChange={(event) => updateAddress("zipCode", event.target.value)}
+                {...fieldProps("address.zipCode")}
               />
+              <FieldError id={errorId("address.zipCode")} message={errors["address.zipCode"]} />
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="customer-state">UF</Label>
@@ -350,7 +409,9 @@ function CustomerFormBody({ customer, onCancel, onSubmit }: CustomerFormBodyProp
                 maxLength={2}
                 value={form.address.state}
                 onChange={(event) => updateAddress("state", event.target.value.toUpperCase())}
+                {...fieldProps("address.state")}
               />
+              <FieldError id={errorId("address.state")} message={errors["address.state"]} />
             </div>
           </div>
 
@@ -360,7 +421,9 @@ function CustomerFormBody({ customer, onCancel, onSubmit }: CustomerFormBodyProp
               id="customer-street"
               value={form.address.street}
               onChange={(event) => updateAddress("street", event.target.value)}
+              {...fieldProps("address.street")}
             />
+            <FieldError id={errorId("address.street")} message={errors["address.street"]} />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -370,7 +433,9 @@ function CustomerFormBody({ customer, onCancel, onSubmit }: CustomerFormBodyProp
                 id="customer-number"
                 value={form.address.number}
                 onChange={(event) => updateAddress("number", event.target.value)}
+                {...fieldProps("address.number")}
               />
+              <FieldError id={errorId("address.number")} message={errors["address.number"]} />
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="customer-complement">Complemento</Label>
@@ -378,7 +443,9 @@ function CustomerFormBody({ customer, onCancel, onSubmit }: CustomerFormBodyProp
                 id="customer-complement"
                 value={form.address.complement}
                 onChange={(event) => updateAddress("complement", event.target.value)}
+                {...fieldProps("address.complement")}
               />
+              <FieldError id={errorId("address.complement")} message={errors["address.complement"]} />
             </div>
           </div>
 
@@ -389,7 +456,9 @@ function CustomerFormBody({ customer, onCancel, onSubmit }: CustomerFormBodyProp
                 id="customer-neighborhood"
                 value={form.address.neighborhood}
                 onChange={(event) => updateAddress("neighborhood", event.target.value)}
+                {...fieldProps("address.neighborhood")}
               />
+              <FieldError id={errorId("address.neighborhood")} message={errors["address.neighborhood"]} />
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="customer-city">Cidade</Label>
@@ -397,7 +466,9 @@ function CustomerFormBody({ customer, onCancel, onSubmit }: CustomerFormBodyProp
                 id="customer-city"
                 value={form.address.city}
                 onChange={(event) => updateAddress("city", event.target.value)}
+                {...fieldProps("address.city")}
               />
+              <FieldError id={errorId("address.city")} message={errors["address.city"]} />
             </div>
           </div>
         </div>
@@ -422,17 +493,25 @@ function CustomerFormBody({ customer, onCancel, onSubmit }: CustomerFormBodyProp
               </ToggleGroupItem>
             ))}
           </ToggleGroup>
-          {errors.contactPreference ? (
-            <p className="text-xs text-destructive">{errors.contactPreference}</p>
-          ) : null}
+          <FieldError id={errorId("contactPreference")} message={errors.contactPreference} />
         </div>
-      </div>
+      </fieldset>
 
-      <SheetFooter className="flex-row justify-end gap-2 border-t">
-        <Button variant="outline" onClick={onCancel}>
-          Cancelar
-        </Button>
-        <Button onClick={handleSubmit}>{isEditing ? "Salvar alterações" : "Cadastrar cliente"}</Button>
+      <SheetFooter className="gap-2 border-t">
+        {generalError ? (
+          <p role="alert" className="text-sm text-destructive">
+            {generalError}
+          </p>
+        ) : null}
+        <div className="flex flex-row justify-end gap-2">
+          <Button variant="outline" onClick={onCancel} disabled={isSaving}>
+            Cancelar
+          </Button>
+          <Button onClick={handleSubmit} disabled={isSaving}>
+            {isSaving ? <Loader2 className="animate-spin" aria-hidden="true" /> : null}
+            {isSaving ? "Salvando…" : isEditing ? "Salvar alterações" : "Cadastrar cliente"}
+          </Button>
+        </div>
       </SheetFooter>
     </>
   );
@@ -442,19 +521,29 @@ interface CustomerFormSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   customer?: Customer;
-  onSubmit: (customer: Customer) => void;
+  /** Chamado com o cliente devolvido pela API, somente após salvar com sucesso. */
+  onSaved: (customer: Customer) => void;
 }
 
-export function CustomerFormSheet({ open, onOpenChange, customer, onSubmit }: CustomerFormSheetProps) {
+export function CustomerFormSheet({ open, onOpenChange, customer, onSaved }: CustomerFormSheetProps) {
+  const [isSaving, setIsSaving] = useState(false);
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet
+      open={open}
+      onOpenChange={(next) => {
+        // Não fecha durante o salvamento: o resultado da API precisa ser exibido.
+        if (!isSaving) onOpenChange(next);
+      }}
+    >
       <SheetContent side="right" className="w-full gap-0 overflow-y-auto sm:max-w-lg">
         <CustomerFormBody
           key={open ? (customer?.id ?? "new") : "closed"}
           customer={customer}
           onCancel={() => onOpenChange(false)}
-          onSubmit={(result) => {
-            onSubmit(result);
+          onSavingChange={setIsSaving}
+          onSaved={(saved) => {
+            onSaved(saved);
             onOpenChange(false);
           }}
         />

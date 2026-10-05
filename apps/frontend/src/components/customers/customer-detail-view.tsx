@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -11,22 +11,29 @@ import {
   Heart,
   History,
   Pencil,
+  RotateCw,
   SearchX,
+  UserX,
   Wrench,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorState } from "@/components/ui/error-state";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useCan } from "@/components/auth/session-provider";
+import { CustomerDeactivateDialog } from "@/components/customers/customer-deactivate-dialog";
 import { CustomerFormSheet } from "@/components/customers/customer-form-sheet";
 import { CustomerStatusBadge } from "@/components/customers/customer-status-badge";
 import { contactPreferenceLabels, personTypeLabels } from "@/lib/customer-options";
 import { formatDocument, formatPhone } from "@/lib/format-document";
-import { customers as initialCustomers, type Customer } from "@/lib/mock/customers";
+import { customerCode, getCustomer, type Customer } from "@/lib/api/customers";
+import { errorMessage, isApiError } from "@/lib/api/errors";
 
 interface DetailFieldProps {
   label: string;
-  value?: string;
+  value?: string | null;
 }
 
 function DetailField({ label, value }: DetailFieldProps) {
@@ -48,47 +55,114 @@ const relationshipSections = [
   { label: "Manutenções", icon: Wrench },
 ];
 
-export function CustomerDetailView({ customerId }: { customerId: string }) {
-  const [customer, setCustomer] = useState<Customer | undefined>(() =>
-    initialCustomers.find((item) => item.id === customerId),
-  );
-  const [isFormOpen, setIsFormOpen] = useState(false);
+type LoadState =
+  | { status: "not-found" }
+  | { status: "error"; message: string }
+  | { status: "ready"; customer: Customer };
 
-  if (!customer) {
+function BackToCustomers() {
+  return (
+    <Button variant="ghost" size="sm" className="w-fit" asChild>
+      <Link href="/customers">
+        <ArrowLeft />
+        Voltar para clientes
+      </Link>
+    </Button>
+  );
+}
+
+export function CustomerDetailView({ customerId }: { customerId: string }) {
+  // Somente para adaptar a interface: o backend sempre reaplica a autorização.
+  const canUpdate = useCan("customers.update");
+  const canDeactivate = useCan("customers.delete");
+  const [reloadToken, setReloadToken] = useState(0);
+  /** Resultado da última carga, com a chave (cliente + recarga) que o originou. */
+  const [loaded, setLoaded] = useState<{ key: string; state: LoadState } | null>(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isDeactivateOpen, setIsDeactivateOpen] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
+
+  const loadKey = `${customerId}:${reloadToken}`;
+  const state = loaded?.key === loadKey ? loaded.state : null;
+
+  useEffect(() => {
+    const controller = new AbortController();
+    getCustomer(customerId, controller.signal)
+      .then((customer) => setLoaded({ key: loadKey, state: { status: "ready", customer } }))
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        // 404: inexistente ou de outra oficina (indistinguíveis); 400: identificador inválido.
+        if (isApiError(error) && (error.status === 404 || error.status === 400)) {
+          setLoaded({ key: loadKey, state: { status: "not-found" } });
+          return;
+        }
+        setLoaded({ key: loadKey, state: { status: "error", message: errorMessage(error) } });
+      });
+    return () => controller.abort();
+  }, [customerId, loadKey]);
+
+  const reload = useCallback(() => setReloadToken((token) => token + 1), []);
+
+  if (state === null) {
+    return (
+      <div className="flex flex-1 flex-col gap-6" aria-busy="true">
+        <BackToCustomers />
+        <span role="status" className="sr-only">
+          Carregando cliente…
+        </span>
+        <div className="flex flex-col gap-2" aria-hidden="true">
+          <Skeleton className="h-7 w-64 max-w-full" />
+          <Skeleton className="h-4 w-40" />
+        </div>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2" aria-hidden="true">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <Skeleton key={index} className="h-40 w-full" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (state.status === "not-found") {
     return (
       <div className="flex flex-1 flex-col gap-6">
-        <Button variant="ghost" size="sm" className="w-fit" asChild>
-          <Link href="/customers">
-            <ArrowLeft />
-            Voltar para clientes
-          </Link>
-        </Button>
+        <BackToCustomers />
         <EmptyState
           icon={SearchX}
           title="Cliente não encontrado"
-          description={`Não existe nenhum cliente com o identificador "${customerId}".`}
+          description="O cliente não existe ou não pertence a esta oficina."
         />
       </div>
     );
   }
 
+  if (state.status === "error") {
+    return (
+      <div className="flex flex-1 flex-col gap-6">
+        <BackToCustomers />
+        <ErrorState
+          title="Não foi possível carregar o cliente"
+          description={state.message}
+          action={
+            <Button variant="outline" size="sm" onClick={reload}>
+              <RotateCw aria-hidden="true" />
+              Tentar novamente
+            </Button>
+          }
+        />
+      </div>
+    );
+  }
+
+  const { customer } = state;
   const address = customer.address;
-  const addressLine = address
-    ? [address.street, address.number].filter(Boolean).join(", ")
-    : undefined;
-  const addressComplement = address
-    ? [address.neighborhood, address.city, address.state].filter(Boolean).join(" — ")
-    : undefined;
+  const addressLine = [address.street, address.number].filter(Boolean).join(", ");
+  const addressComplement = [address.neighborhood, address.city, address.state].filter(Boolean).join(" — ");
 
   return (
     <div className="flex flex-1 flex-col gap-6">
       <div className="flex flex-col gap-4">
-        <Button variant="ghost" size="sm" className="w-fit" asChild>
-          <Link href="/customers">
-            <ArrowLeft />
-            Voltar para clientes
-          </Link>
-        </Button>
+        <BackToCustomers />
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-col gap-1">
@@ -97,14 +171,27 @@ export function CustomerDetailView({ customerId }: { customerId: string }) {
               <CustomerStatusBadge status={customer.status} />
             </div>
             <p className="text-sm text-muted-foreground">
-              {customer.id} · {personTypeLabels[customer.personType]}
+              {customerCode(customer.number)} · {personTypeLabels[customer.personType]}
             </p>
           </div>
-          <Button size="sm" onClick={() => setIsFormOpen(true)}>
-            <Pencil />
-            Editar
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {canDeactivate && customer.status !== "INACTIVE" ? (
+              <Button size="sm" variant="outline" onClick={() => setIsDeactivateOpen(true)}>
+                <UserX />
+                Inativar
+              </Button>
+            ) : null}
+            {canUpdate ? (
+              <Button size="sm" onClick={() => setIsFormOpen(true)}>
+                <Pencil />
+                Editar
+              </Button>
+            ) : null}
+          </div>
         </div>
+        <p role="status" aria-live="polite" className={feedback ? "text-sm text-success" : "sr-only"}>
+          {feedback}
+        </p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -153,9 +240,9 @@ export function CustomerDetailView({ customerId }: { customerId: string }) {
             <CardTitle>Endereço</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-4">
-            <DetailField label="CEP" value={address?.zipCode} />
+            <DetailField label="CEP" value={address.zipCode} />
             <DetailField label="Logradouro" value={addressLine} />
-            <DetailField label="Complemento" value={address?.complement} />
+            <DetailField label="Complemento" value={address.complement} />
             <DetailField label="Bairro / Cidade / UF" value={addressComplement} />
           </CardContent>
         </Card>
@@ -185,7 +272,18 @@ export function CustomerDetailView({ customerId }: { customerId: string }) {
         open={isFormOpen}
         onOpenChange={setIsFormOpen}
         customer={customer}
-        onSubmit={setCustomer}
+        onSaved={(saved) => {
+          setLoaded({ key: loadKey, state: { status: "ready", customer: saved } });
+          setFeedback("Alterações salvas.");
+        }}
+      />
+      <CustomerDeactivateDialog
+        customer={isDeactivateOpen ? customer : null}
+        onOpenChange={setIsDeactivateOpen}
+        onDeactivated={() => {
+          setFeedback("Cliente inativado.");
+          reload();
+        }}
       />
     </div>
   );

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Eye, MoreHorizontal, Pencil, Users } from "lucide-react";
+import { Eye, MoreHorizontal, Pencil, UserX, Users } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -19,14 +20,16 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useCan } from "@/components/auth/session-provider";
 import { CustomerStatusBadge } from "@/components/customers/customer-status-badge";
+import { customerCode, type Customer } from "@/lib/api/customers";
 import { personTypeLabels } from "@/lib/customer-options";
 import { formatDocument, formatPhone } from "@/lib/format-document";
-import type { Customer } from "@/lib/mock/customers";
 
 interface CustomersTableProps {
   customers: Customer[];
   onEdit: (customer: Customer) => void;
+  onDeactivate: (customer: Customer) => void;
 }
 
 function getInitials(name: string): string {
@@ -36,7 +39,11 @@ function getInitials(name: string): string {
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
 
-export function CustomersTable({ customers, onEdit }: CustomersTableProps) {
+export function CustomersTable({ customers, onEdit, onDeactivate }: CustomersTableProps) {
+  // Somente para adaptar a interface: o backend sempre reaplica a autorização.
+  const canUpdate = useCan("customers.update");
+  const canDeactivate = useCan("customers.delete");
+
   if (customers.length === 0) {
     return (
       <EmptyState
@@ -80,7 +87,7 @@ export function CustomersTable({ customers, onEdit }: CustomersTableProps) {
                 <div className="flex flex-col">
                   <span className="text-sm font-medium text-foreground">{customer.name}</span>
                   <span className="text-xs text-muted-foreground/70">
-                    {personTypeLabels[customer.personType]}
+                    {customerCode(customer.number)} · {personTypeLabels[customer.personType]}
                   </span>
                 </div>
               </div>
@@ -102,7 +109,7 @@ export function CustomersTable({ customers, onEdit }: CustomersTableProps) {
                       <Button
                         variant="ghost"
                         size="icon-sm"
-                        className="text-muted-foreground opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100 hover:text-foreground"
+                        className="text-muted-foreground opacity-0 transition-opacity duration-150 group-hover:opacity-100 [@media(hover:none)]:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100 hover:text-foreground"
                         aria-label={`Ações para ${customer.name}`}
                       >
                         <MoreHorizontal className="size-4" aria-hidden="true" />
@@ -118,10 +125,21 @@ export function CustomersTable({ customers, onEdit }: CustomersTableProps) {
                       Visualizar
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => onEdit(customer)}>
-                    <Pencil />
-                    Editar
-                  </DropdownMenuItem>
+                  {canUpdate ? (
+                    <DropdownMenuItem onSelect={() => onEdit(customer)}>
+                      <Pencil />
+                      Editar
+                    </DropdownMenuItem>
+                  ) : null}
+                  {canDeactivate && customer.status !== "INACTIVE" ? (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem variant="destructive" onSelect={() => onDeactivate(customer)}>
+                        <UserX />
+                        Inativar
+                      </DropdownMenuItem>
+                    </>
+                  ) : null}
                 </DropdownMenuContent>
               </DropdownMenu>
             </TableCell>
