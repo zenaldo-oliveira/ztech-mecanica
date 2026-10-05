@@ -5,6 +5,7 @@ import { Menu, PanelLeft, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAppShell } from "@/components/layout/app-shell";
+import { BackButton } from "@/components/layout/back-button";
 import { HelpMenu } from "@/components/layout/help-menu";
 import { Kbd } from "@/components/layout/kbd";
 import { NotificationsMenu } from "@/components/layout/notifications-menu";
@@ -78,6 +79,7 @@ export function AppHeader() {
     <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-background/95 px-3 backdrop-blur-sm sm:px-4">
       <SidebarToggle />
       <span aria-hidden="true" className="hidden h-5 w-px shrink-0 bg-border md:block" />
+      <BackButton />
       <div className="min-w-0 flex-1 px-1">
         <TopbarBreadcrumb />
       </div>
